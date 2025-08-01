@@ -1,10 +1,973 @@
 <!DOCTYPE html>
-<html>
+<html lang="de">
 <head>
+    <!-- Meta-Tags für responsive Design und SEO -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Language Learning Platform - Duolingo-ähnliche Sprachlernanwendung">
     <title>Language Learning Platform</title>
+    
+    <!-- Tailwind CSS über CDN für schnelles Styling ohne Build-Prozess -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Custom CSS für zusätzliche Styles -->
+    <link rel="stylesheet" href="css/styles.css">
+    
+    <!-- Tailwind Konfiguration für Custom Colors und Animationen -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        // Duolingo-ähnliche Farbpalette
+                        primary: '#1cb0f6',    // Duolingo Blau
+                        success: '#58cc02',    // Duolingo Grün  
+                        warning: '#ff9600',    // Duolingo Orange
+                        danger: '#ff4b4b',     // Duolingo Rot
+                        purple: '#ce82ff',     // Duolingo Lila
+                        gold: '#ffc800'       // Duolingo Gold
+                    },
+                    animation: {
+                        'bounce-slow': 'bounce 2s infinite',
+                        'pulse-slow': 'pulse 3s infinite'
+                    }
+                }
+            }
+        }
+    </script>
 </head>
-<body>
-    <h1>Coming Soon</h1>
-    <p>Language Learning Platform in Development</p>
+<body class="bg-gray-50 font-sans">
+    
+    <!-- ===========================================
+         NAVIGATION BAR - Wird je nach Login-Status angezeigt
+         =========================================== -->
+    <nav id="navbar" class="bg-white shadow-md fixed top-0 w-full z-50 hidden">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <!-- Logo und Hauptnavigation -->
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <h1 class="text-2xl font-bold text-primary">🌍 LernPlattform</h1>
+                    </div>
+                    <!-- Navigation Links - werden je nach Benutzerrolle angezeigt -->
+                    <div class="hidden md:ml-6 md:flex md:space-x-8">
+                        <a href="#" onclick="showPage('dashboard')" class="nav-link text-gray-900 hover:text-primary px-3 py-2 text-sm font-medium">Dashboard</a>
+                        <a href="#" onclick="showPage('profile')" class="nav-link text-gray-900 hover:text-primary px-3 py-2 text-sm font-medium">Profil</a>
+                        <!-- Conditional Links für verschiedene Benutzerrollen -->
+                        <a href="#" onclick="showPage('learning')" class="nav-link student-only text-gray-900 hover:text-primary px-3 py-2 text-sm font-medium hidden">Lernen</a>
+                        <a href="#" onclick="showPage('courses')" class="nav-link teacher-only text-gray-900 hover:text-primary px-3 py-2 text-sm font-medium hidden">Kurse</a>
+                        <a href="#" onclick="showPage('admin')" class="nav-link admin-only text-gray-900 hover:text-primary px-3 py-2 text-sm font-medium hidden">Admin</a>
+                    </div>
+                </div>
+                
+                <!-- Benutzer-Menü und Logout -->
+                <div class="flex items-center space-x-4">
+                    <span id="user-greeting" class="text-sm text-gray-700"></span>
+                    <button onclick="logout()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                        Abmelden
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ===========================================
+         MAIN CONTAINER - Enthält alle App-Bereiche
+         =========================================== -->
+    <main class="min-h-screen">
+        
+        <!-- ===========================================
+             WELCOME/LANDING PAGE - Erste Seite für nicht-angemeldete Benutzer
+             =========================================== -->
+        <div id="welcome-page" class="page-section">
+            <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary to-purple">
+                <div class="max-w-md w-full bg-white rounded-lg shadow-xl p-8">
+                    <!-- Logo und Willkommensnachricht -->
+                    <div class="text-center mb-8">
+                        <h1 class="text-4xl font-bold text-gray-800 mb-2">🌍</h1>
+                        <h2 class="text-3xl font-bold text-gray-800 mb-2">LernPlattform</h2>
+                        <p class="text-gray-600">Sprachen lernen wie mit Duolingo</p>
+                    </div>
+                    
+                    <!-- Action Buttons für Login und Registrierung -->
+                    <div class="space-y-4">
+                        <button onclick="showPage('login')" class="w-full bg-primary hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                            Anmelden
+                        </button>
+                        <button onclick="showPage('register')" class="w-full bg-success hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                            Registrieren
+                        </button>
+                    </div>
+                    
+                    <!-- Feature-Highlights -->
+                    <div class="mt-8 text-center">
+                        <p class="text-sm text-gray-500 mb-4">Features:</p>
+                        <div class="flex justify-center space-x-4 text-xs text-gray-400">
+                            <span>✓ Interaktive Lektionen</span>
+                            <span>✓ Progress Tracking</span>
+                            <span>✓ Achievements</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===========================================
+             LOGIN PAGE - Anmeldeformular
+             =========================================== -->
+        <div id="login-page" class="page-section hidden">
+            <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+                <div class="max-w-md w-full space-y-8">
+                    <!-- Login Header -->
+                    <div class="text-center">
+                        <h2 class="text-3xl font-extrabold text-gray-900">Anmelden</h2>
+                        <p class="mt-2 text-sm text-gray-600">
+                            Noch kein Account? 
+                            <a href="#" onclick="showPage('register')" class="font-medium text-primary hover:text-blue-500">
+                                Hier registrieren
+                            </a>
+                        </p>
+                    </div>
+                    
+                    <!-- Login Form -->
+                    <form id="login-form" class="mt-8 space-y-6" onsubmit="handleLogin(event)">
+                        <!-- Error Message Container -->
+                        <div id="login-error" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded"></div>
+                        
+                        <div class="space-y-4">
+                            <!-- Username/Email Input -->
+                            <div>
+                                <label for="login-username" class="block text-sm font-medium text-gray-700">Benutzername oder E-Mail</label>
+                                <input id="login-username" name="username" type="text" required 
+                                       class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm" 
+                                       placeholder="Benutzername oder E-Mail">
+                            </div>
+                            
+                            <!-- Password Input -->
+                            <div>
+                                <label for="login-password" class="block text-sm font-medium text-gray-700">Passwort</label>
+                                <input id="login-password" name="password" type="password" required 
+                                       class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm" 
+                                       placeholder="Passwort">
+                            </div>
+                        </div>
+
+                        <!-- Remember Me & Forgot Password -->
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <input id="remember-me" name="remember-me" type="checkbox" class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
+                                <label for="remember-me" class="ml-2 block text-sm text-gray-900">Angemeldet bleiben</label>
+                            </div>
+                            <div class="text-sm">
+                                <a href="#" class="font-medium text-primary hover:text-blue-500">Passwort vergessen?</a>
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div>
+                            <button type="submit" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+                                Anmelden
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <!-- Back to Welcome -->
+                    <div class="text-center">
+                        <a href="#" onclick="showPage('welcome')" class="text-sm text-gray-500 hover:text-gray-700">← Zurück zur Startseite</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===========================================
+             REGISTER PAGE - Registrierungsformular
+             =========================================== -->
+        <div id="register-page" class="page-section hidden">
+            <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+                <div class="max-w-md w-full space-y-8">
+                    <!-- Register Header -->
+                    <div class="text-center">
+                        <h2 class="text-3xl font-extrabold text-gray-900">Registrieren</h2>
+                        <p class="mt-2 text-sm text-gray-600">
+                            Bereits ein Account? 
+                            <a href="#" onclick="showPage('login')" class="font-medium text-primary hover:text-blue-500">
+                                Hier anmelden
+                            </a>
+                        </p>
+                    </div>
+                    
+                    <!-- Register Form -->
+                    <form id="register-form" class="mt-8 space-y-6" onsubmit="handleRegister(event)">
+                        <!-- Error/Success Message Container -->
+                        <div id="register-message" class="hidden px-4 py-3 rounded"></div>
+                        
+                        <!-- User Type Selection - Wichtig für verschiedene Dashboards -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-3">Ich bin:</label>
+                            <div class="flex space-x-4">
+                                <label class="flex items-center">
+                                    <input type="radio" name="userType" value="student" checked class="h-4 w-4 text-primary focus:ring-primary border-gray-300">
+                                    <span class="ml-2 text-sm text-gray-700">Schüler/Student</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="radio" name="userType" value="teacher" class="h-4 w-4 text-primary focus:ring-primary border-gray-300">
+                                    <span class="ml-2 text-sm text-gray-700">Lehrer</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <!-- First Name -->
+                            <div>
+                                <label for="register-name" class="block text-sm font-medium text-gray-700">Vorname</label>
+                                <input id="register-name" name="name" type="text" required 
+                                       class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary focus:border-primary sm:text-sm" 
+                                       placeholder="Max">
+                            </div>
+                            
+                            <!-- Last Name -->
+                            <div>
+                                <label for="register-surname" class="block text-sm font-medium text-gray-700">Nachname</label>
+                                <input id="register-surname" name="surname" type="text" required 
+                                       class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary focus:border-primary sm:text-sm" 
+                                       placeholder="Mustermann">
+                            </div>
+                        </div>
+                        
+                        <!-- Email -->
+                        <div>
+                            <label for="register-email" class="block text-sm font-medium text-gray-700">E-Mail</label>
+                            <input id="register-email" name="email" type="email" required 
+                                   class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary focus:border-primary sm:text-sm" 
+                                   placeholder="max@example.com">
+                        </div>
+                        
+                        <!-- Username -->
+                        <div>
+                            <label for="register-username" class="block text-sm font-medium text-gray-700">Benutzername</label>
+                            <input id="register-username" name="username" type="text" required 
+                                   class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary focus:border-primary sm:text-sm" 
+                                   placeholder="max_mustermann">
+                            <p class="mt-1 text-xs text-gray-500">Nur Buchstaben, Zahlen und Unterstriche erlaubt</p>
+                        </div>
+                        
+                        <!-- Password -->
+                        <div>
+                            <label for="register-password" class="block text-sm font-medium text-gray-700">Passwort</label>
+                            <input id="register-password" name="password" type="password" required 
+                                   class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary focus:border-primary sm:text-sm" 
+                                   placeholder="Sicheres Passwort">
+                            <!-- Password Strength Indicator -->
+                            <div id="password-strength" class="mt-2 text-xs">
+                                <div class="flex space-x-1">
+                                    <div id="strength-bar-1" class="h-1 w-1/4 bg-gray-200 rounded"></div>
+                                    <div id="strength-bar-2" class="h-1 w-1/4 bg-gray-200 rounded"></div>
+                                    <div id="strength-bar-3" class="h-1 w-1/4 bg-gray-200 rounded"></div>
+                                    <div id="strength-bar-4" class="h-1 w-1/4 bg-gray-200 rounded"></div>
+                                </div>
+                                <p id="strength-text" class="mt-1 text-gray-500">Passwort eingeben</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Confirm Password -->
+                        <div>
+                            <label for="register-confirm-password" class="block text-sm font-medium text-gray-700">Passwort bestätigen</label>
+                            <input id="register-confirm-password" name="confirmPassword" type="password" required 
+                                   class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary focus:border-primary sm:text-sm" 
+                                   placeholder="Passwort wiederholen">
+                        </div>
+
+                        <!-- Terms & Conditions -->
+                        <div class="flex items-center">
+                            <input id="accept-terms" name="acceptTerms" type="checkbox" required class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
+                            <label for="accept-terms" class="ml-2 block text-sm text-gray-900">
+                                Ich akzeptiere die <a href="#" class="text-primary hover:text-blue-500">Nutzungsbedingungen</a> und <a href="#" class="text-primary hover:text-blue-500">Datenschutzerklärung</a>
+                            </label>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div>
+                            <button type="submit" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-success hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-success">
+                                Account erstellen
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <!-- Back to Welcome -->
+                    <div class="text-center">
+                        <a href="#" onclick="showPage('welcome')" class="text-sm text-gray-500 hover:text-gray-700">← Zurück zur Startseite</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===========================================
+             DASHBOARD PAGE - Hauptbereich nach dem Login
+             =========================================== -->
+        <div id="dashboard-page" class="page-section hidden">
+            <div class="pt-16"> <!-- Padding für Fixed Navbar -->
+                <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+                    <!-- Dashboard Header mit Begrüßung -->
+                    <div class="mb-8">
+                        <h1 id="dashboard-title" class="text-3xl font-bold text-gray-900">Dashboard</h1>
+                        <p id="dashboard-subtitle" class="mt-1 text-sm text-gray-600">Willkommen zurück!</p>
+                    </div>
+                    
+                    <!-- Dashboard Content wird je nach Benutzerrolle dynamisch geladen -->
+                    <div id="dashboard-content">
+                        <!-- Student Dashboard Content -->
+                        <div id="student-dashboard" class="hidden">
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                <!-- Learning Progress Card -->
+                                <div class="bg-white overflow-hidden shadow rounded-lg">
+                                    <div class="p-6">
+                                        <div class="flex items-center">
+                                            <div class="flex-shrink-0">
+                                                <div class="text-3xl">📚</div>
+                                            </div>
+                                            <div class="ml-4">
+                                                <h3 class="text-lg font-medium text-gray-900">Lernfortschritt</h3>
+                                                <p class="text-sm text-gray-500">Deine Erfolge im Überblick</p>
+                                            </div>
+                                        </div>
+                                        <div class="mt-4">
+                                            <div class="bg-gray-200 rounded-full h-2">
+                                                <div class="bg-success h-2 rounded-full" style="width: 45%"></div>
+                                            </div>
+                                            <p class="text-xs text-gray-500 mt-1">45% abgeschlossen</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Current Streak Card -->
+                                <div class="bg-white overflow-hidden shadow rounded-lg">
+                                    <div class="p-6">
+                                        <div class="flex items-center">
+                                            <div class="flex-shrink-0">
+                                                <div class="text-3xl">🔥</div>
+                                            </div>
+                                            <div class="ml-4">
+                                                <h3 class="text-lg font-medium text-gray-900">Streak</h3>
+                                                <p class="text-2xl font-bold text-warning">7 Tage</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- XP Points Card -->
+                                <div class="bg-white overflow-hidden shadow rounded-lg">
+                                    <div class="p-6">
+                                        <div class="flex items-center">
+                                            <div class="flex-shrink-0">
+                                                <div class="text-3xl">⭐</div>
+                                            </div>
+                                            <div class="ml-4">
+                                                <h3 class="text-lg font-medium text-gray-900">XP Punkte</h3>
+                                                <p class="text-2xl font-bold text-gold">1,250 XP</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Quick Actions -->
+                            <div class="mt-8">
+                                <h2 class="text-xl font-semibold text-gray-900 mb-4">Schnellaktionen</h2>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    <button onclick="showPage('learning')" class="bg-primary hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+                                        Weiterlernen
+                                    </button>
+                                    <button onclick="showPage('teachers')" class="bg-success hover:bg-green-600 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+                                        Lehrer finden
+                                    </button>
+                                    <button onclick="showPage('achievements')" class="bg-purple hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+                                        Erfolge ansehen
+                                    </button>
+                                    <button onclick="showPage('profile')" class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+                                        Profil bearbeiten
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Teacher Dashboard Content -->
+                        <div id="teacher-dashboard" class="hidden">
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                <!-- Students Count Card -->
+                                <div class="bg-white overflow-hidden shadow rounded-lg">
+                                    <div class="p-6">
+                                        <div class="flex items-center">
+                                            <div class="flex-shrink-0">
+                                                <div class="text-3xl">👥</div>
+                                            </div>
+                                            <div class="ml-4">
+                                                <h3 class="text-lg font-medium text-gray-900">Schüler</h3>
+                                                <p class="text-2xl font-bold text-primary">24</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Active Courses Card -->
+                                <div class="bg-white overflow-hidden shadow rounded-lg">
+                                    <div class="p-6">
+                                        <div class="flex items-center">
+                                            <div class="flex-shrink-0">
+                                                <div class="text-3xl">📖</div>
+                                            </div>
+                                            <div class="ml-4">
+                                                <h3 class="text-lg font-medium text-gray-900">Aktive Kurse</h3>
+                                                <p class="text-2xl font-bold text-success">3</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Teacher Code Card -->
+                                <div class="bg-white overflow-hidden shadow rounded-lg">
+                                    <div class="p-6">
+                                        <div class="flex items-center">
+                                            <div class="flex-shrink-0">
+                                                <div class="text-3xl">🔑</div>
+                                            </div>
+                                            <div class="ml-4">
+                                                <h3 class="text-lg font-medium text-gray-900">Dein Teacher-Code</h3>
+                                                <p class="text-xl font-bold text-purple" id="teacher-code">ABC123</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Quick Actions for Teachers -->
+                            <div class="mt-8">
+                                <h2 class="text-xl font-semibold text-gray-900 mb-4">Schnellaktionen</h2>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    <button onclick="showPage('students')" class="bg-primary hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+                                        Schüler verwalten
+                                    </button>
+                                    <button onclick="showPage('courses')" class="bg-success hover:bg-green-600 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+                                        Kurse bearbeiten
+                                    </button>
+                                    <button onclick="showPage('analytics')" class="bg-warning hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+                                        Statistiken
+                                    </button>
+                                    <button onclick="showPage('profile')" class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+                                        Profil bearbeiten
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===========================================
+             PLACEHOLDER PAGES - Werden später vollständig implementiert
+             =========================================== -->
+        
+        <!-- Profile Page -->
+        <div id="profile-page" class="page-section hidden">
+            <div class="pt-16 max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+                <h1 class="text-3xl font-bold text-gray-900 mb-6">Profil</h1>
+                <div class="bg-white shadow rounded-lg p-6">
+                    <p class="text-gray-600">Profilseite wird hier implementiert...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Learning Page (Student) -->
+        <div id="learning-page" class="page-section hidden">
+            <div class="pt-16 max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+                <h1 class="text-3xl font-bold text-gray-900 mb-6">Lernen</h1>
+                <div class="bg-white shadow rounded-lg p-6">
+                    <p class="text-gray-600">Lern-Interface wird hier implementiert...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Courses Page (Teacher) -->
+        <div id="courses-page" class="page-section hidden">
+            <div class="pt-16 max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+                <h1 class="text-3xl font-bold text-gray-900 mb-6">Kurse verwalten</h1>
+                <div class="bg-white shadow rounded-lg p-6">
+                    <p class="text-gray-600">Kurs-Management wird hier implementiert...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Admin Page -->
+        <div id="admin-page" class="page-section hidden">
+            <div class="pt-16 max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+                <h1 class="text-3xl font-bold text-gray-900 mb-6">Admin Panel</h1>
+                <div class="bg-white shadow rounded-lg p-6">
+                    <p class="text-gray-600">Admin-Interface wird hier implementiert...</p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- ===========================================
+         JAVASCRIPT IMPORTS - Alle JS-Dateien einbinden
+         =========================================== -->
+    
+    <!-- Utils muss zuerst geladen werden, da andere Dateien diese Funktionen verwenden -->
+    <script src="js/utils.js"></script>
+    
+    <!-- Data Manager für LocalStorage-Operationen -->
+    <script src="js/data-manager.js"></script>
+    
+    <!-- Authentication System -->
+    <script src="js/auth.js"></script>
+    
+    <!-- Main App mit SPA Router - muss als letztes geladen werden -->
+    <script src="js/app.js"></script>
+    
+    <!-- ===========================================
+         INLINE JAVASCRIPT - Basis-Funktionen die sofort verfügbar sein müssen
+         =========================================== -->
+    <script>
+        // ========================================
+        // SPA ROUTER - Zentrale Navigation zwischen Seiten
+        // ========================================
+        
+        /**
+         * Zeigt eine bestimmte Seite an und versteckt alle anderen
+         * @param {string} pageId - ID der Seite die angezeigt werden soll
+         */
+        function showPage(pageId) {
+            // Alle Seiten verstecken
+            const allPages = document.querySelectorAll('.page-section');
+            allPages.forEach(page => {
+                page.classList.add('hidden');
+            });
+            
+            // Gewünschte Seite anzeigen
+            const targetPage = document.getElementById(pageId + '-page');
+            if (targetPage) {
+                targetPage.classList.remove('hidden');
+                
+                // Navbar nur bei angemeldeten Benutzern anzeigen
+                const navbar = document.getElementById('navbar');
+                const publicPages = ['welcome', 'login', 'register'];
+                
+                if (publicPages.includes(pageId)) {
+                    navbar.classList.add('hidden');
+                } else {
+                    navbar.classList.remove('hidden');
+                    updateNavigation(pageId);
+                }
+            }
+            
+            // Browser-History aktualisieren (für Zurück-Button)
+            history.pushState({ page: pageId }, '', '#' + pageId);
+        }
+        
+        /**
+         * Aktualisiert die Navigation basierend auf der aktuellen Seite
+         * @param {string} currentPage - Aktuelle Seite
+         */
+        function updateNavigation(currentPage) {
+            // Alle Nav-Links als inaktiv markieren
+            const navLinks = document.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                link.classList.remove('bg-primary', 'text-white');
+                link.classList.add('text-gray-900');
+            });
+            
+            // Aktuellen Link als aktiv markieren
+            const activeLink = document.querySelector(`[onclick="showPage('${currentPage}')"]`);
+            if (activeLink && activeLink.classList.contains('nav-link')) {
+                activeLink.classList.add('bg-primary', 'text-white');
+                activeLink.classList.remove('text-gray-900');
+            }
+        }
+        
+        // ========================================
+        // AUTHENTICATION HANDLERS - Login/Logout/Register
+        // ========================================
+        
+        /**
+         * Behandelt das Login-Formular
+         * @param {Event} event - Form Submit Event
+         */
+        function handleLogin(event) {
+            event.preventDefault();
+            
+            // Formular-Daten sammeln
+            const formData = new FormData(event.target);
+            const loginData = {
+                username: formData.get('username'),
+                password: formData.get('password'),
+                rememberMe: formData.get('remember-me') === 'on'
+            };
+            
+            // Error-Container zurücksetzen
+            const errorDiv = document.getElementById('login-error');
+            errorDiv.classList.add('hidden');
+            
+            try {
+                // Auth-System aufrufen (wird in auth.js implementiert)
+                const result = attemptLogin(loginData);
+                
+                if (result.success) {
+                    // Erfolgreich eingeloggt - zum Dashboard weiterleiten
+                    initializeUserSession(result.user);
+                    showPage('dashboard');
+                } else {
+                    // Login fehlgeschlagen - Fehler anzeigen
+                    showError('login-error', result.message);
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showError('login-error', 'Ein unerwarteter Fehler ist aufgetreten. Bitte versuche es erneut.');
+            }
+        }
+        
+        /**
+         * Behandelt das Registrierungs-Formular
+         * @param {Event} event - Form Submit Event
+         */
+        function handleRegister(event) {
+            event.preventDefault();
+            
+            // Formular-Daten sammeln
+            const formData = new FormData(event.target);
+            const registerData = {
+                name: formData.get('name'),
+                surname: formData.get('surname'),
+                email: formData.get('email'),
+                username: formData.get('username'),
+                password: formData.get('password'),
+                confirmPassword: formData.get('confirmPassword'),
+                userType: formData.get('userType'),
+                acceptTerms: formData.get('acceptTerms') === 'on'
+            };
+            
+            // Message-Container zurücksetzen
+            const messageDiv = document.getElementById('register-message');
+            messageDiv.classList.add('hidden');
+            
+            try {
+                // Registrierung validieren und durchführen
+                const result = attemptRegister(registerData);
+                
+                if (result.success) {
+                    // Erfolgreich registriert
+                    showSuccess('register-message', 'Account erfolgreich erstellt! Du wirst zum Login weitergeleitet...');
+                    
+                    // Nach 2 Sekunden zum Login weiterleiten
+                    setTimeout(() => {
+                        showPage('login');
+                        // Username vorausfüllen
+                        document.getElementById('login-username').value = registerData.username;
+                    }, 2000);
+                } else {
+                    // Registrierung fehlgeschlagen
+                    showError('register-message', result.message);
+                }
+            } catch (error) {
+                console.error('Registration error:', error);
+                showError('register-message', 'Ein unerwarteter Fehler ist aufgetreten. Bitte versuche es erneut.');
+            }
+        }
+        
+        /**
+         * Loggt den Benutzer aus und kehrt zur Welcome-Seite zurück
+         */
+        function logout() {
+            // Session beenden
+            clearUserSession();
+            
+            // Zur Welcome-Seite zurückkehren
+            showPage('welcome');
+            
+            // Optional: Logout-Bestätigung anzeigen
+            showNotification('Du wurdest erfolgreich abgemeldet.', 'success');
+        }
+        
+        // ========================================
+        // USER SESSION MANAGEMENT
+        // ========================================
+        
+        /**
+         * Initialisiert die Benutzer-Session nach erfolgreichem Login
+         * @param {Object} user - Benutzer-Objekt
+         */
+        function initializeUserSession(user) {
+            // Begrüßung anzeigen
+            const userGreeting = document.getElementById('user-greeting');
+            userGreeting.textContent = `Hallo, ${user.name}!`;
+            
+            // Dashboard-Titel anpassen
+            const dashboardTitle = document.getElementById('dashboard-title');
+            const dashboardSubtitle = document.getElementById('dashboard-subtitle');
+            
+            if (user.userType === 'student') {
+                dashboardTitle.textContent = 'Schüler Dashboard';
+                dashboardSubtitle.textContent = `Willkommen zurück, ${user.name}! Bereit zum Lernen?`;
+                
+                // Student-Dashboard anzeigen
+                document.getElementById('student-dashboard').classList.remove('hidden');
+                document.getElementById('teacher-dashboard').classList.add('hidden');
+                
+                // Student-spezifische Navigation anzeigen
+                document.querySelectorAll('.student-only').forEach(el => el.classList.remove('hidden'));
+                document.querySelectorAll('.teacher-only').forEach(el => el.classList.add('hidden'));
+                
+            } else if (user.userType === 'teacher') {
+                dashboardTitle.textContent = 'Lehrer Dashboard';
+                dashboardSubtitle.textContent = `Willkommen zurück, ${user.name}! Deine Schüler warten auf dich.`;
+                
+                // Teacher-Dashboard anzeigen
+                document.getElementById('teacher-dashboard').classList.remove('hidden');
+                document.getElementById('student-dashboard').classList.add('hidden');
+                
+                // Teacher-Code anzeigen
+                document.getElementById('teacher-code').textContent = user.teacherCode || 'Wird generiert...';
+                
+                // Teacher-spezifische Navigation anzeigen
+                document.querySelectorAll('.teacher-only').forEach(el => el.classList.remove('hidden'));
+                document.querySelectorAll('.student-only').forEach(el => el.classList.add('hidden'));
+            }
+        }
+        
+        /**
+         * Beendet die Benutzer-Session
+         */
+        function clearUserSession() {
+            // LocalStorage leeren
+            localStorage.removeItem('currentUser');
+            localStorage.removeItem('authToken');
+            
+            // UI zurücksetzen
+            document.getElementById('user-greeting').textContent = '';
+            document.getElementById('student-dashboard').classList.add('hidden');
+            document.getElementById('teacher-dashboard').classList.add('hidden');
+            
+            // Navigation verstecken
+            document.querySelectorAll('.student-only, .teacher-only').forEach(el => el.classList.add('hidden'));
+        }
+        
+        // ========================================
+        // UI HELPER FUNCTIONS
+        // ========================================
+        
+        /**
+         * Zeigt eine Fehlermeldung an
+         * @param {string} containerId - ID des Error-Containers
+         * @param {string} message - Fehlermeldung
+         */
+        function showError(containerId, message) {
+            const container = document.getElementById(containerId);
+            container.textContent = message;
+            container.className = 'bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded';
+            container.classList.remove('hidden');
+        }
+        
+        /**
+         * Zeigt eine Erfolgsmeldung an
+         * @param {string} containerId - ID des Message-Containers
+         * @param {string} message - Erfolgsmeldung
+         */
+        function showSuccess(containerId, message) {
+            const container = document.getElementById(containerId);
+            container.textContent = message;
+            container.className = 'bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded';
+            container.classList.remove('hidden');
+        }
+        
+        /**
+         * Zeigt eine temporäre Benachrichtigung an
+         * @param {string} message - Nachricht
+         * @param {string} type - 'success', 'error', 'warning', 'info'
+         */
+        function showNotification(message, type = 'info') {
+            // Notification-Element erstellen (falls noch nicht vorhanden)
+            let notification = document.getElementById('notification');
+            if (!notification) {
+                notification = document.createElement('div');
+                notification.id = 'notification';
+                notification.className = 'fixed top-4 right-4 z-50 max-w-sm w-full';
+                document.body.appendChild(notification);
+            }
+            
+            // Farben basierend auf Typ
+            let bgColor, textColor, borderColor;
+            switch (type) {
+                case 'success':
+                    bgColor = 'bg-green-100';
+                    textColor = 'text-green-700';
+                    borderColor = 'border-green-400';
+                    break;
+                case 'error':
+                    bgColor = 'bg-red-100';
+                    textColor = 'text-red-700';
+                    borderColor = 'border-red-400';
+                    break;
+                case 'warning':
+                    bgColor = 'bg-yellow-100';
+                    textColor = 'text-yellow-700';
+                    borderColor = 'border-yellow-400';
+                    break;
+                default:
+                    bgColor = 'bg-blue-100';
+                    textColor = 'text-blue-700';
+                    borderColor = 'border-blue-400';
+            }
+            
+            notification.innerHTML = `
+                <div class="${bgColor} ${textColor} ${borderColor} border px-4 py-3 rounded shadow-lg">
+                    ${message}
+                </div>
+            `;
+            
+            // Nach 3 Sekunden ausblenden
+            setTimeout(() => {
+                notification.innerHTML = '';
+            }, 3000);
+        }
+        
+        // ========================================
+        // PASSWORD STRENGTH CHECKER
+        // ========================================
+        
+        /**
+         * Überprüft die Passwort-Stärke in Echtzeit
+         */
+        function initPasswordStrengthChecker() {
+            const passwordInput = document.getElementById('register-password');
+            const strengthBars = [
+                document.getElementById('strength-bar-1'),
+                document.getElementById('strength-bar-2'),
+                document.getElementById('strength-bar-3'),
+                document.getElementById('strength-bar-4')
+            ];
+            const strengthText = document.getElementById('strength-text');
+            
+            passwordInput.addEventListener('input', function() {
+                const password = this.value;
+                const strength = calculatePasswordStrength(password);
+                
+                // Bars zurücksetzen
+                strengthBars.forEach(bar => {
+                    bar.className = 'h-1 w-1/4 bg-gray-200 rounded';
+                });
+                
+                // Basierend auf Stärke einfärben
+                let color, text;
+                if (strength === 0) {
+                    color = 'bg-gray-200';
+                    text = 'Passwort eingeben';
+                } else if (strength === 1) {
+                    color = 'bg-red-400';
+                    text = 'Sehr schwach';
+                    strengthBars[0].className = 'h-1 w-1/4 bg-red-400 rounded';
+                } else if (strength === 2) {
+                    color = 'bg-orange-400';
+                    text = 'Schwach';
+                    strengthBars[0].className = 'h-1 w-1/4 bg-orange-400 rounded';
+                    strengthBars[1].className = 'h-1 w-1/4 bg-orange-400 rounded';
+                } else if (strength === 3) {
+                    color = 'bg-yellow-400';
+                    text = 'Mittel';
+                    strengthBars[0].className = 'h-1 w-1/4 bg-yellow-400 rounded';
+                    strengthBars[1].className = 'h-1 w-1/4 bg-yellow-400 rounded';
+                    strengthBars[2].className = 'h-1 w-1/4 bg-yellow-400 rounded';
+                } else {
+                    color = 'bg-green-400';
+                    text = 'Stark';
+                    strengthBars.forEach(bar => {
+                        bar.className = 'h-1 w-1/4 bg-green-400 rounded';
+                    });
+                }
+                
+                strengthText.textContent = text;
+                strengthText.className = `mt-1 text-xs ${strength >= 3 ? 'text-green-600' : strength >= 2 ? 'text-yellow-600' : 'text-red-600'}`;
+            });
+        }
+        
+        /**
+         * Berechnet die Passwort-Stärke
+         * @param {string} password - Das zu prüfende Passwort
+         * @returns {number} Stärke von 0-4
+         */
+        function calculatePasswordStrength(password) {
+            if (!password) return 0;
+            
+            let score = 0;
+            
+            // Länge prüfen
+            if (password.length >= 8) score++;
+            if (password.length >= 12) score++;
+            
+            // Verschiedene Zeichentypen prüfen
+            if (/[a-z]/.test(password)) score++; // Kleinbuchstaben
+            if (/[A-Z]/.test(password)) score++; // Großbuchstaben
+            if (/[0-9]/.test(password)) score++; // Zahlen
+            if (/[^A-Za-z0-9]/.test(password)) score++; // Sonderzeichen
+            
+            // Maximale Punktzahl auf 4 begrenzen
+            return Math.min(score, 4);
+        }
+        
+        // ========================================
+        // BROWSER HISTORY MANAGEMENT
+        // ========================================
+        
+        // Zurück-Button des Browsers abfangen
+        window.addEventListener('popstate', function(event) {
+            if (event.state && event.state.page) {
+                showPage(event.state.page);
+            } else {
+                // Fallback zur Welcome-Seite
+                showPage('welcome');
+            }
+        });
+        
+        // ========================================
+        // APP INITIALIZATION - Wird beim Laden der Seite ausgeführt
+        // ========================================
+        
+        /**
+         * Initialisiert die App beim Laden der Seite
+         */
+        function initializeApp() {
+            console.log('🚀 Language Learning Platform wird initialisiert...');
+            
+            // Password Strength Checker aktivieren
+            initPasswordStrengthChecker();
+            
+            // Prüfen ob Benutzer bereits eingeloggt ist
+            const savedUser = localStorage.getItem('currentUser');
+            if (savedUser) {
+                try {
+                    const user = JSON.parse(savedUser);
+                    console.log('👤 Gespeicherte Session gefunden für:', user.username);
+                    
+                    // Session wiederherstellen
+                    initializeUserSession(user);
+                    showPage('dashboard');
+                } catch (error) {
+                    console.error('❌ Fehler beim Wiederherstellen der Session:', error);
+                    // Defekte Session-Daten löschen
+                    localStorage.removeItem('currentUser');
+                    showPage('welcome');
+                }
+            } else {
+                // Keine gespeicherte Session - Welcome-Seite anzeigen
+                showPage('welcome');
+            }
+            
+            console.log('✅ App-Initialisierung abgeschlossen');
+        }
+        
+        // App initialisieren sobald DOM geladen ist
+        document.addEventListener('DOMContentLoaded', initializeApp);
+        
+    </script>
+
 </body>
 </html>
