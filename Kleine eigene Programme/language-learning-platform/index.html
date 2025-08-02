@@ -36,7 +36,7 @@
                         <a href="#" onclick="showPage('profile')" class="nav-link">Profil</a>
                         <a href="#" onclick="showPage('learning')" class="nav-link student-only hidden">Lernen</a>
                         <a href="#" onclick="showPage('teachers')" class="nav-link student-only hidden">Lehrer finden</a>
-                        <a href="#" onclick="showPage('courses')" class="nav-link teacher-only hidden">Kurse</a>
+                        <a href="#" onclick="showPage('admin')" class="nav-link admin-only hidden">Admin</a>
                     </div>
                 </div>
                 <div class="flex items-center space-x-4">
@@ -301,11 +301,11 @@
             </div>
         </div>
 
-        <div id="analytics-page" class="page-section hidden">
-            <div class="pt-16 max-w-4xl mx-auto py-6 px-4">
-                <h1 class="text-3xl font-bold text-gray-900 mb-6">Statistiken</h1>
-                <div class="bg-white shadow rounded-lg p-6">
-                    <p class="text-gray-600">Analytics kommt bald...</p>
+        <!-- Admin Page -->
+        <div id="admin-page" class="page-section hidden">
+            <div class="pt-16 max-w-7xl mx-auto py-6 px-4">
+                <div id="admin-content">
+                    <p class="text-gray-600">Lade Admin-Interface...</p>
                 </div>
             </div>
         </div>
@@ -394,7 +394,7 @@
                 
                 document.querySelectorAll('.student-only').forEach(el => el.classList.remove('hidden'));
                 document.querySelectorAll('.teacher-only').forEach(el => el.classList.add('hidden'));
-            } else {
+            } else if (currentUser.userType === 'teacher') {
                 document.getElementById('teacher-dashboard').classList.remove('hidden');
                 document.getElementById('student-dashboard').classList.add('hidden');
                 
@@ -403,6 +403,14 @@
                 document.getElementById('teacher-students').textContent = students.length;
                 document.getElementById('teacher-code').textContent = currentUser.teacherCode;
                 
+                document.querySelectorAll('.teacher-only').forEach(el => el.classList.remove('hidden'));
+                document.querySelectorAll('.student-only').forEach(el => el.classList.add('hidden'));
+            } else if (currentUser.userType === 'admin') {
+                // Admin sieht Teacher-Dashboard + Admin-Navigation
+                document.getElementById('teacher-dashboard').classList.remove('hidden');
+                document.getElementById('student-dashboard').classList.add('hidden');
+                
+                document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
                 document.querySelectorAll('.teacher-only').forEach(el => el.classList.remove('hidden'));
                 document.querySelectorAll('.student-only').forEach(el => el.classList.add('hidden'));
             }
@@ -604,7 +612,7 @@
         }
     </script>
 
-    <script src="js/simple-learning-engine.js"></script>
+    <script src="js/admin-system.js"></script>
 
 </body>
 </html>
