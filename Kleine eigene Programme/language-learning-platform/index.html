@@ -373,6 +373,17 @@
                 case 'teachers':
                     loadTeachers();
                     break;
+                case 'students':  // <- DAS FEHLT!
+                    if (window.teacherStudentManager && currentUser?.userType === 'teacher') {
+                        teacherStudentManager.initialize();
+                        teacherStudentManager.loadEnhancedStudentManagement();
+                    }
+                    break;
+                case 'admin':
+                    if (window.loadAdminInterface && currentUser?.userType === 'admin') {
+                        loadAdminInterface();
+                    }
+                    break;
             }
         }
 

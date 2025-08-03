@@ -807,6 +807,42 @@ window.getCurrentUser = getCurrentUser;
 window.clearUserSession = clearUserSession;
 window.refreshToken = refreshToken;
 
+// ========================================
+// AUTO-SESSION-WIEDERHERSTELLUNG
+// ========================================
+
+/**
+ * Stellt automatisch die Session beim Seitenladen wieder her
+ */
+function initializeAuthSystem() {
+    console.log('🔄 Auth-System wird initialisiert...');
+    
+    // CurrentUser automatisch setzen falls Session vorhanden
+    const currentUser = getCurrentUser();
+    if (currentUser) {
+        window.currentUser = currentUser;
+        console.log('✅ Session wiederhergestellt für:', currentUser.username);
+    } else {
+        window.currentUser = null;
+        console.log('ℹ️ Keine aktive Session gefunden');
+    }
+}
+
+// Database global verfügbar machen (war vergessen!)
+window.userDatabase = userDatabase;
+
+// Auth-System beim Laden initialisieren
+document.addEventListener('DOMContentLoaded', initializeAuthSystem);
+
+// Auch sofort initialisieren falls DOMContentLoaded bereits gefeuert
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeAuthSystem);
+} else {
+    initializeAuthSystem();
+}
+
+console.log('✅ Auth-System mit Auto-Session-Wiederherstellung geladen');
+
 // Utility-Klassen global verfügbar machen für erweiterte Nutzung
 window.InputValidator = InputValidator;
 window.TokenManager = TokenManager;
