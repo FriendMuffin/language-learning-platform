@@ -322,42 +322,41 @@
         // SIMPLE NAVIGATION SYSTEM
         // ==========================================
         
-        let currentUser = null;
 
-        function showPage(pageId) {
-            console.log('📍 Navigate to:', pageId);
+    function showPage(pageId) {
+        console.log('📍 Navigate to:', pageId);
+        
+        // Hide all pages
+        document.querySelectorAll('.page-section').forEach(page => {
+            page.classList.add('hidden');
+        });
+        
+        // Show target page
+        const targetPage = document.getElementById(pageId + '-page');
+        if (targetPage) {
+            targetPage.classList.remove('hidden');
             
-            // Hide all pages
-            document.querySelectorAll('.page-section').forEach(page => {
-                page.classList.add('hidden');
-            });
+            // Handle navbar
+            const navbar = document.getElementById('navbar');
+            const publicPages = ['welcome', 'login', 'register'];
             
-            // Show target page
-            const targetPage = document.getElementById(pageId + '-page');
-            if (targetPage) {
-                targetPage.classList.remove('hidden');
+            if (publicPages.includes(pageId)) {
+                navbar.classList.add('hidden');
+            } else {
+                navbar.classList.remove('hidden');
                 
-                // Handle navbar
-                const navbar = document.getElementById('navbar');
-                const publicPages = ['welcome', 'login', 'register'];
-                
-                if (publicPages.includes(pageId)) {
-                    navbar.classList.add('hidden');
-                } else {
-                    navbar.classList.remove('hidden');
-                    
-                    // Check auth for protected pages
-                    if (!currentUser) {
-                        showPage('login');
-                        showMessage('Bitte melde dich an', 'warning');
-                        return;
-                    }
-                    
-                    // Load page content
-                    loadPageContent(pageId);
+                // Check auth for protected pages
+                if (!window.currentUser) {
+                    showPage('login');
+                    showMessage('Bitte melde dich an', 'warning');
+                    return;
                 }
+                
+                // Load page content
+                loadPageContent(pageId);
             }
         }
+    }
 
         function loadPageContent(pageId) {
             switch(pageId) {
@@ -368,19 +367,23 @@
                     loadProfile();
                     break;
                 case 'learning':
-                    loadLearning();
+                    if (window.loadAdvancedLearningInterface) {
+                        loadAdvancedLearningInterface();  // <- Permission-Interface
+                    } else {
+                        loadLearning();  // <- Fallback
+                    }
                     break;
                 case 'teachers':
                     loadTeachers();
                     break;
                 case 'students':  // <- DAS FEHLT!
-                    if (window.teacherStudentManager && currentUser?.userType === 'teacher') {
+                    if (window.teacherStudentManager && window.currentUser?.userType === 'teacher') {
                         teacherStudentManager.initialize();
                         teacherStudentManager.loadEnhancedStudentManagement();
                     }
                     break;
                 case 'admin':
-                    if (window.loadAdminInterface && currentUser?.userType === 'admin') {
+                    if (window.loadAdminInterface && window.currentUser?.userType === 'admin') {
                         loadAdminInterface();
                     }
                     break;
@@ -388,35 +391,35 @@
         }
 
         function loadDashboard() {
-            if (!currentUser) return;
+            if (!window.currentUser) return;
             
             // Update greeting
-            document.getElementById('user-greeting').textContent = `Hallo, ${currentUser.name}!`;
+            document.getElementById('user-greeting').textContent = `Hallo, ${window.currentUser.name}!`;
             
-            if (currentUser.userType === 'student') {
+            if (window.currentUser.userType === 'student') {
                 document.getElementById('student-dashboard').classList.remove('hidden');
                 document.getElementById('teacher-dashboard').classList.add('hidden');
                 
                 // Load student data
-                const progress = progressManager.getUserProgress(currentUser.id);
+                const progress = progressManager.getUserProgress(window.currentUser.id);
                 document.getElementById('student-xp').textContent = progress.totalXP + ' XP';
                 document.getElementById('student-streak').textContent = progress.currentStreak + ' Tage';
                 document.getElementById('student-tasks').textContent = progress.totalTasksCompleted;
                 
                 document.querySelectorAll('.student-only').forEach(el => el.classList.remove('hidden'));
                 document.querySelectorAll('.teacher-only').forEach(el => el.classList.add('hidden'));
-            } else if (currentUser.userType === 'teacher') {
+            } else if (window.currentUser.userType === 'teacher') {
                 document.getElementById('teacher-dashboard').classList.remove('hidden');
                 document.getElementById('student-dashboard').classList.add('hidden');
                 
                 // Load teacher data
-                const students = relationshipManager.getStudentsOfTeacher(currentUser.id);
+                const students = relationshipManager.getStudentsOfTeacher(window.currentUser.id);
                 document.getElementById('teacher-students').textContent = students.length;
-                document.getElementById('teacher-code').textContent = currentUser.teacherCode;
+                document.getElementById('teacher-code').textContent = window.currentUser.teacherCode;
                 
                 document.querySelectorAll('.teacher-only').forEach(el => el.classList.remove('hidden'));
                 document.querySelectorAll('.student-only').forEach(el => el.classList.add('hidden'));
-            } else if (currentUser.userType === 'admin') {
+            } else if (window.currentUser.userType === 'admin') {
                 // Admin sieht Teacher-Dashboard + Admin-Navigation
                 document.getElementById('teacher-dashboard').classList.remove('hidden');
                 document.getElementById('student-dashboard').classList.add('hidden');
@@ -428,28 +431,28 @@
         }
 
         function loadProfile() {
-            if (!currentUser) return;
+            if (!window.currentUser) return;
             
             document.getElementById('profile-content').innerHTML = `
                 <div class="space-y-6">
                     <div class="flex items-center space-x-4">
                         <div class="w-20 h-20 bg-primary rounded-full flex items-center justify-center text-white text-2xl font-bold">
-                            ${currentUser.name.charAt(0)}${currentUser.surname.charAt(0)}
+                            ${window.currentUser.name.charAt(0)}${window.currentUser.surname.charAt(0)}
                         </div>
                         <div>
-                            <h2 class="text-2xl font-bold">${currentUser.name} ${currentUser.surname}</h2>
-                            <p class="text-gray-600">@${currentUser.username}</p>
-                            <p class="text-sm text-gray-500">${currentUser.userType === 'student' ? 'Schüler' : 'Lehrer'}</p>
+                            <h2 class="text-2xl font-bold">${window.currentUser.name} ${window.currentUser.surname}</h2>
+                            <p class="text-gray-600">@${window.currentUser.username}</p>
+                            <p class="text-sm text-gray-500">${window.currentUser.userType === 'student' ? 'Schüler' : 'Lehrer'}</p>
                         </div>
                     </div>
                     <div>
                         <h3 class="font-semibold mb-2">E-Mail:</h3>
-                        <p>${currentUser.email}</p>
+                        <p>${window.currentUser.email}</p>
                     </div>
-                    ${currentUser.teacherCode ? `
+                    ${window.currentUser.teacherCode ? `
                     <div>
                         <h3 class="font-semibold mb-2">Teacher-Code:</h3>
-                        <p class="font-mono text-lg">${currentUser.teacherCode}</p>
+                        <p class="font-mono text-lg">${window.currentUser.teacherCode}</p>
                     </div>
                     ` : ''}
                 </div>
@@ -457,10 +460,13 @@
         }
 
         function loadLearning() {
-            if (!currentUser) return;
+            if (!window.currentUser) return;
             
-            const availableCourses = getAvailableCoursesForUser(currentUser.id, currentUser.userType);
-            const userProgress = progressManager.getUserProgress(currentUser.id);
+             const container = document.getElementById('learning-content');
+            if (!container) return;
+
+            const availableCourses = getAvailableCoursesForUser(window.currentUser.id, window.currentUser.userType);
+            const userProgress = progressManager.getUserProgress(window.currentUser.id);
             
             let html = '<h2 class="text-xl font-semibold mb-4">Verfügbare Kurse</h2>';
             
@@ -469,7 +475,7 @@
             } else {
                 html += '<div class="space-y-4">';
                 availableCourses.forEach(course => {
-                    const progress = progressManager.calculateCourseProgress(currentUser.id, course.id, course);
+                    const progress = progressManager.calculateCourseProgress(window.currentUser.id, course.id, course);
                     html += `
                         <div class="border rounded-lg p-4">
                             <h3 class="font-semibold">${course.title}</h3>
@@ -490,9 +496,9 @@
         }
 
         function loadTeachers() {
-            if (!currentUser) return;
+            if (!window.currentUser) return;
             
-            const followedTeachers = relationshipManager.getTeachersOfStudent(currentUser.id);
+            const followedTeachers = relationshipManager.getTeachersOfStudent(window.currentUser.id);
             
             let html = '';
             if (followedTeachers.length > 0) {
@@ -524,7 +530,7 @@
                 return;
             }
             
-            const result = relationshipManager.connectStudentToTeacher(currentUser.id, code);
+            const result = relationshipManager.connectStudentToTeacher(window.currentUser.id, code);
             if (result.success) {
                 showMessage(result.message, 'success');
                 loadTeachers();
@@ -544,7 +550,7 @@
             });
             
             if (result.success) {
-                currentUser = result.user;
+                window.currentUser = result.user;
                 showPage('dashboard');
             } else {
                 document.getElementById('login-error').textContent = result.message;
@@ -581,8 +587,8 @@
         }
 
         function logout() {
-            currentUser = null;
-            localStorage.removeItem('currentUser');
+            window.currentUser = null;
+            localStorage.removeItem('window.currentUser');
             showPage('welcome');
             showMessage('Erfolgreich abgemeldet', 'success');
         }
@@ -602,7 +608,7 @@
             const savedUser = localStorage.getItem('currentUser');
             if (savedUser) {
                 try {
-                    currentUser = JSON.parse(savedUser);
+                    window.currentUser = JSON.parse(savedUser);
                     showPage('dashboard');
                 } catch (e) {
                     localStorage.removeItem('currentUser');
