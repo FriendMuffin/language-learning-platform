@@ -767,4 +767,5 @@ window.loadLearning = function() {
     enhancedLoadLearning();
 };
 
+window.learningEngine = learningEngine;
 console.log('🎓 Simple Learning Engine geladen und bereit!');

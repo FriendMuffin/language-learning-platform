@@ -968,13 +968,33 @@ function enhanceStartLearningModule() {
             return;
         }
         
-        // Simple Learning Engine direkt starten
-        if (window.learningEngine && window.learningEngine.startLesson) {
-            learningEngine.startLesson(courseId, 'lesson-1');
-        } else {
-            showNotification('🎓 Modul wird gestartet...', 'success');
-            console.log('✅ Zugang gewährt für:', moduleId);
+        // Learning-Engine verfügbar?
+        if (!window.learningEngine) {
+            console.error('❌ Learning-Engine nicht gefunden!');
+            showNotification('Learning-Engine nicht verfügbar', 'error');
+            return;
         }
+        
+        // UI zu Learning-Page wechseln
+        showPage('learning');
+        
+        // Kurzen Moment warten für UI-Update
+        setTimeout(() => {
+            try {
+                // ✅ FIX 1: Verwende 'learning-page' statt 'learning-content'
+                window.learningEngine.initialize('learning-page');
+                
+                console.log('🚀 Starte Learning-Engine:', { courseId, levelId, moduleId });
+                window.learningEngine.startLesson(courseId, levelId, moduleId);
+                
+                showNotification('🎓 Modul erfolgreich gestartet!', 'success');
+                console.log('✅ Learning-Engine erfolgreich gestartet');
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Starten der Learning-Engine:', error);
+                showNotification('Fehler beim Laden des Moduls', 'error');
+            }
+        }, 1000); // ✅ FIX 2: 1000ms statt 100ms
     };
 }
 

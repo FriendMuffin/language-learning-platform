@@ -368,15 +368,15 @@
                     break;
                 case 'learning':
                     if (window.loadAdvancedLearningInterface) {
-                        loadAdvancedLearningInterface();  // <- Permission-Interface
+                        loadAdvancedLearningInterface();
                     } else {
-                        loadLearning();  // <- Fallback
+                        loadLearning();
                     }
                     break;
                 case 'teachers':
                     loadTeachers();
                     break;
-                case 'students':  // <- DAS FEHLT!
+                case 'students':
                     if (window.teacherStudentManager && window.currentUser?.userType === 'teacher') {
                         teacherStudentManager.initialize();
                         teacherStudentManager.loadEnhancedStudentManagement();
@@ -632,6 +632,7 @@
     <script src="js/admin-system.js"></script>
     <script src="js/teacher-student-system.js"></script>
     <script src="js/course-permission-system.js"></script>
+    <script src="js/course-engine.js"></script>
 
 </body>
 </html>
