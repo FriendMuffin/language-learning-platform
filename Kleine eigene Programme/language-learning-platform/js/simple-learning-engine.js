@@ -620,8 +620,30 @@ class SimpleLearningEngine {
      * Navigation-Funktionen
      */
     exitLesson() {
-        if (confirm('Möchtest du die Lektion wirklich verlassen?')) {
-            this.backToLearning();
+        if (confirm('Möchtest du die Lektion wirklich verlassen? Dein Fortschritt geht verloren.')) {
+            console.log('🚪 Verlasse Learning-Engine...');
+            
+            // Learning-Engine deaktivieren
+            this.isActive = false;
+            this.currentCourse = null;
+            this.currentLevel = null; 
+            this.currentModule = null;
+            this.currentTask = null;
+            
+            // Clean Navigation: Alle Pages verstecken
+            document.querySelectorAll('[id$="-page"]').forEach(page => {
+                page.classList.add('hidden');
+            });
+            
+            // Zurück zu Learning-Page
+            document.getElementById('learning-page').classList.remove('hidden');
+            
+            // Learning-Interface neu laden
+            if (window.loadAdvancedLearningInterface) {
+                loadAdvancedLearningInterface();
+            }
+            
+            console.log('✅ Learning-Engine clean beendet, zurück zu Learning-Page');
         }
     }
     

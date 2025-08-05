@@ -201,27 +201,28 @@ class CoursePermissionManager {
         let hasProgress = false;
         let progressReason = '';
         
-        if (courseProgress) {
-            const completedModules = courseProgress.completedModules || [];
-            const completedTasks = courseProgress.completedTasks || [];
-            
-            // Für erste Level/Module: immer verfügbar wenn Teacher-Permission da ist
-            const course = courseManager.getCourse(courseId);
-            if (course) {
-                const level = course.levels.find(l => l.id === levelId);
-                if (level) {
-                    const module = level.modules.find(m => m.id === moduleId);
-                    if (module) {
-                        const moduleIndex = level.modules.findIndex(m => m.id === moduleId);
-                        const levelIndex = course.levels.findIndex(l => l.id === levelId);
+        // WICHTIG: Startmodul-Check AUSSERHALB von courseProgress (für neue Kurse)
+        const course = courseManager.getCourse(courseId);
+        if (course) {
+            const level = course.levels.find(l => l.id === levelId);
+            if (level) {
+                const module = level.modules.find(m => m.id === moduleId);
+                if (module) {
+                    const moduleIndex = level.modules.findIndex(m => m.id === moduleId);
+                    const levelIndex = course.levels.findIndex(l => l.id === levelId);
+                    
+                    // Erstes Modul im ersten Level: immer verfügbar (auch ohne courseProgress)
+                    if (levelIndex === 0 && moduleIndex === 0) {
+                        hasProgress = true;
+                        progressReason = 'Startmodul';
+                    }
+                    // Weitere Progress-Checks nur wenn courseProgress existiert
+                    else if (courseProgress) {
+                        const completedModules = courseProgress.completedModules || [];
+                        const completedTasks = courseProgress.completedTasks || [];
                         
-                        // Erstes Modul im ersten Level: immer verfügbar
-                        if (levelIndex === 0 && moduleIndex === 0) {
-                            hasProgress = true;
-                            progressReason = 'Startmodul';
-                        }
                         // Prüfe ob vorheriges Modul abgeschlossen
-                        else if (moduleIndex > 0) {
+                        if (moduleIndex > 0) {
                             const previousModule = level.modules[moduleIndex - 1];
                             const previousModuleTasks = previousModule.tasks.map(t => t.id);
                             const completedPreviousTasks = previousModuleTasks.filter(taskId => 
@@ -254,6 +255,9 @@ class CoursePermissionManager {
                                 progressReason = `Vorheriges Level nur zu ${Math.round((completedPreviousLevelTasks.length / previousLevelTasks.length) * 100)}% abgeschlossen`;
                             }
                         }
+                    } else {
+                        // Kein courseProgress für weitere Module → Progress erforderlich
+                        progressReason = 'Kein Fortschritt vorhanden - starte mit dem ersten Modul';
                     }
                 }
             }
@@ -909,12 +913,10 @@ function enhanceLearningInterface() {
         const userProgress = progressManager.getUserProgress(currentUser.id);
         const availableCourses = getAvailableCoursesForUser(currentUser.id, currentUser.userType);
         
-        // Eingeschriebene Kurse mit Permission-Checks
-        const enrolledCourses = availableCourses.filter(course => 
-            userProgress.coursesEnrolled.includes(course.id)
-        );
+        // Zeige ALLE verfügbaren Kurse (bessere UX für Studenten)
+        const coursesToShow = availableCourses;
         
-        if (enrolledCourses.length === 0) {
+        if (coursesToShow.length === 0) {
             learningContainer.innerHTML = `
                 <div class="text-center py-8">
                     <h3 class="text-xl font-semibold text-gray-900 mb-4">Noch keine Kurse</h3>
@@ -928,7 +930,7 @@ function enhanceLearningInterface() {
         }
         
         // Auto-Progression für alle Kurse prüfen
-        enrolledCourses.forEach(course => {
+        coursesToShow.forEach(course => {
             coursePermissionManager.checkAutoProgression(currentUser.id, course.id);
         });
         
@@ -938,7 +940,7 @@ function enhanceLearningInterface() {
                 <h2 class="text-2xl font-bold text-gray-900">🎓 Deine Lernreise</h2>
         `;
         
-        enrolledCourses.forEach(course => {
+        coursesToShow.forEach(course => {
             courseHTML += studentPermissionInterface.renderCourseWithPermissions(course, currentUser.id);
         });
         
@@ -983,13 +985,13 @@ function enhanceStartLearningModule() {
             try {
                 // ✅ FIX 1: Verwende 'learning-page' statt 'learning-content'
                 window.learningEngine.initialize('learning-page');
-                
+
                 console.log('🚀 Starte Learning-Engine:', { courseId, levelId, moduleId });
                 window.learningEngine.startLesson(courseId, levelId, moduleId);
-                
+
                 showNotification('🎓 Modul erfolgreich gestartet!', 'success');
                 console.log('✅ Learning-Engine erfolgreich gestartet');
-                
+
             } catch (error) {
                 console.error('❌ Fehler beim Starten der Learning-Engine:', error);
                 showNotification('Fehler beim Laden des Moduls', 'error');
