@@ -211,8 +211,9 @@
                         <button onclick="showPage('students')" class="bg-primary text-white px-6 py-3 rounded-lg">
                             Schüler verwalten
                         </button>
-                        <button onclick="showPage('courses')" class="bg-success text-white px-6 py-3 rounded-lg">
-                            Kurse bearbeiten
+                        <button onclick="showPage('admin'); setTimeout(() => adminSystem.showCourseManagement(), 100);" 
+                                class="bg-success text-white px-6 py-3 rounded-lg">
+                            Kurse verwalten
                         </button>
                         <button onclick="showPage('analytics')" class="bg-warning text-white px-6 py-3 rounded-lg">
                             Statistiken

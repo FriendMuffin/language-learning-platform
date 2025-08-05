@@ -243,41 +243,22 @@ class AdminSystem {
                             </div>
                             
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Sprache</label>
-                                <select name="language" required 
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                    <option value="">Sprache wählen</option>
-                                    <option value="Deutsch">Deutsch</option>
-                                    <option value="English">English</option>
-                                    <option value="Français">Français</option>
-                                    <option value="Español">Español</option>
-                                    <option value="Italiano">Italiano</option>
-                                </select>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Fachbereich</label>
+                                <input type="text" name="subject" required 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                       placeholder="z.B. Mathematik, Geschichte, Programmierung">
                             </div>
-                            
+
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Zielsprache</label>
-                                <select name="targetLanguage" required 
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                    <option value="">Zielsprache wählen</option>
-                                    <option value="Deutsch">Deutsch</option>
-                                    <option value="English">English</option>
-                                    <option value="Français">Français</option>
-                                    <option value="Español">Español</option>
-                                </select>
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Sprachniveau</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Schwierigkeitsgrad</label>
                                 <select name="level" required 
                                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                    <option value="">Niveau wählen</option>
-                                    <option value="A1">A1 - Anfänger</option>
-                                    <option value="A2">A2 - Grundlagen</option>
-                                    <option value="B1">B1 - Mittelstufe</option>
-                                    <option value="B2">B2 - Gute Mittelstufe</option>
-                                    <option value="C1">C1 - Fortgeschritten</option>
-                                    <option value="C2">C2 - Sehr fortgeschritten</option>
+                                    <option value="">Schwierigkeitsgrad wählen</option>
+                                    <option value="Anfänger">Anfänger</option>
+                                    <option value="Grundlagen">Grundlagen</option>
+                                    <option value="Mittelstufe">Mittelstufe</option>
+                                    <option value="Fortgeschritten">Fortgeschritten</option>
+                                    <option value="Experte">Experte</option>
                                 </select>
                             </div>
                         </div>
@@ -356,8 +337,7 @@ class AdminSystem {
         const courseData = {
             id: this.generateCourseId(),
             title: formData.get('title'),
-            language: formData.get('language'),
-            targetLanguage: formData.get('targetLanguage'),
+            subject: formData.get('subject'),
             level: formData.get('level'),
             description: formData.get('description'),
             teacherId: formData.get('teacherId'),
@@ -698,8 +678,8 @@ class AdminSystem {
             return;
         }
         
-        this.showNotification('ℹ️ Kurs-Editor wird bald verfügbar sein!', 'info');
-        // Hier würde der Course-Structure-Builder geladen werden
+        // Course Structure Builder für bestehenden Kurs öffnen
+        this.showCourseStructureBuilder(courseId);
     }
     
     /**
@@ -816,6 +796,1014 @@ class AdminSystem {
         }
     }
 }
+
+/**
+ * ========================================
+ * UNIVERSAL COURSE STRUCTURE BUILDER
+ * ========================================
+ * 
+ * Vollständig generisches Course-Building-System:
+ * - Beliebige Course/Level/Module-Namen
+ * - 7 Task-Types als Bausteine
+ * - Drag & Drop Reihenfolge
+ * - Live-Preview
+ * - Für JEDEN Lernbereich (Mathe, Geschichte, Kochen, etc.)
+ */
+
+/**
+ * Erweitert AdminSystem um Course Structure Builder
+ */
+
+/**
+ * Zeigt den Course Structure Builder
+ * @param {string} courseId - ID des erstellten Kurses
+ */
+AdminSystem.prototype.showCourseStructureBuilder = function(courseId) {
+    this.currentCourse = courseManager.getCourse(courseId);
+    if (!this.currentCourse) {
+        this.showNotification('❌ Kurs nicht gefunden', 'error');
+        return;
+    }
+    
+    const container = document.getElementById('admin-content') || document.querySelector('#admin-page .bg-white');
+    
+    container.innerHTML = `
+        <div class="space-y-6">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 rounded-lg">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-2xl font-bold mb-2">🏗️ Course Structure Builder</h2>
+                        <p class="text-blue-100">Erstelle die Struktur für: "${this.currentCourse.title}"</p>
+                    </div>
+                    <div class="text-right">
+                        <button onclick="adminSystem.saveCourseStructure()" 
+                                class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded mr-2">
+                            💾 Speichern
+                        </button>
+                        <button onclick="adminSystem.loadAdminDashboard()" 
+                                class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">
+                            ← Dashboard
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Course Info -->
+            <div class="bg-white rounded-lg shadow p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-lg font-semibold">${this.currentCourse.title}</h3>
+                        <p class="text-gray-600">${this.currentCourse.description}</p>
+                    </div>
+                    <div class="text-sm text-gray-500">
+                        <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded mr-2">${this.currentCourse.level}</span>
+                        <span>👨‍🏫 ${this.currentCourse.teacherName}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Main Builder Interface -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- Level Management -->
+                <div class="bg-white rounded-lg shadow">
+                    <div class="px-4 py-3 border-b border-gray-200 bg-blue-50">
+                        <h3 class="text-lg font-semibold text-blue-800">📚 Level Management</h3>
+                    </div>
+                    <div class="p-4">
+                        <!-- Add Level Form -->
+                        <div class="mb-4">
+                            <input type="text" id="new-level-title" placeholder="Level-Name (z.B. 'Grundlagen')" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded mb-2">
+                            <textarea id="new-level-description" placeholder="Level-Beschreibung (optional)" 
+                                      class="w-full px-3 py-2 border border-gray-300 rounded mb-2" rows="2"></textarea>
+                            <button onclick="adminSystem.addLevel()" 
+                                    class="w-full bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded text-sm">
+                                ➕ Level hinzufügen
+                            </button>
+                        </div>
+                        
+                        <!-- Levels List -->
+                        <div id="levels-list" class="space-y-2">
+                            ${this.renderLevelsList()}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Module Management -->
+                <div class="bg-white rounded-lg shadow">
+                    <div class="px-4 py-3 border-b border-gray-200 bg-green-50">
+                        <h3 class="text-lg font-semibold text-green-800">📖 Module Management</h3>
+                    </div>
+                    <div class="p-4">
+                        <div id="module-management">
+                            ${this.renderModuleManagement()}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Task Builder -->
+                <div class="bg-white rounded-lg shadow">
+                    <div class="px-4 py-3 border-b border-gray-200 bg-purple-50">
+                        <h3 class="text-lg font-semibold text-purple-800">🎯 Task Builder</h3>
+                    </div>
+                    <div class="p-4">
+                        <div id="task-builder">
+                            ${this.renderTaskBuilder()}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Course Structure Preview -->
+            <div class="bg-white rounded-lg shadow">
+                <div class="px-4 py-3 border-b border-gray-200 bg-yellow-50">
+                    <h3 class="text-lg font-semibold text-yellow-800">👁️ Course Structure Preview</h3>
+                </div>
+                <div class="p-4">
+                    <div id="course-preview">
+                        ${this.renderCoursePreview()}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+};
+
+/**
+ * Rendert die Level-Liste
+ */
+AdminSystem.prototype.renderLevelsList = function() {
+    if (!this.currentCourse.levels || this.currentCourse.levels.length === 0) {
+        return '<div class="text-gray-500 text-sm text-center py-4">Noch keine Level erstellt</div>';
+    }
+    
+    return this.currentCourse.levels.map((level, index) => `
+        <div class="border border-gray-200 rounded p-3 ${this.currentLevel?.id === level.id ? 'bg-blue-50 border-blue-300' : ''}" 
+             onclick="adminSystem.selectLevel('${level.id}')">
+            <div class="flex items-center justify-between">
+                <div class="flex-1">
+                    <h4 class="font-medium">${level.title}</h4>
+                    ${level.description ? `<p class="text-sm text-gray-600">${level.description}</p>` : ''}
+                    <div class="text-xs text-gray-500 mt-1">
+                        ${level.modules?.length || 0} Module, ${this.getLevelTaskCount(level)} Tasks
+                    </div>
+                </div>
+                <div class="flex space-x-1">
+                    <button onclick="event.stopPropagation(); adminSystem.moveLevel(${index}, -1)" 
+                            class="text-gray-400 hover:text-gray-600 text-sm" ${index === 0 ? 'disabled' : ''}>↑</button>
+                    <button onclick="event.stopPropagation(); adminSystem.moveLevel(${index}, 1)" 
+                            class="text-gray-400 hover:text-gray-600 text-sm" ${index === this.currentCourse.levels.length - 1 ? 'disabled' : ''}>↓</button>
+                    <button onclick="event.stopPropagation(); adminSystem.deleteLevel('${level.id}')" 
+                            class="text-red-400 hover:text-red-600 text-sm">🗑️</button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+};
+
+/**
+ * Rendert Module-Management
+ */
+AdminSystem.prototype.renderModuleManagement = function() {
+    if (!this.currentLevel) {
+        return '<div class="text-gray-500 text-sm text-center py-4">← Wähle ein Level um Module zu bearbeiten</div>';
+    }
+    
+    return `
+        <!-- Add Module Form -->
+        <div class="mb-4">
+            <h4 class="font-medium mb-2">Module für: "${this.currentLevel.title}"</h4>
+            <input type="text" id="new-module-title" placeholder="Modul-Name (z.B. 'Addition & Subtraktion')" 
+                   class="w-full px-3 py-2 border border-gray-300 rounded mb-2">
+            <textarea id="new-module-description" placeholder="Modul-Beschreibung (optional)" 
+                      class="w-full px-3 py-2 border border-gray-300 rounded mb-2" rows="2"></textarea>
+            <input type="number" id="new-module-minutes" placeholder="Geschätzte Minuten" 
+                   class="w-full px-3 py-2 border border-gray-300 rounded mb-2" min="1" value="15">
+            <button onclick="adminSystem.addModule()" 
+                    class="w-full bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded text-sm">
+                ➕ Modul hinzufügen
+            </button>
+        </div>
+        
+        <!-- Modules List -->
+        <div class="space-y-2">
+            ${this.renderModulesList()}
+        </div>
+    `;
+};
+
+/**
+ * Rendert Module-Liste
+ */
+AdminSystem.prototype.renderModulesList = function() {
+    if (!this.currentLevel.modules || this.currentLevel.modules.length === 0) {
+        return '<div class="text-gray-500 text-sm text-center py-2">Noch keine Module in diesem Level</div>';
+    }
+    
+    return this.currentLevel.modules.map((module, index) => `
+        <div class="border border-gray-200 rounded p-3 ${this.currentModule?.id === module.id ? 'bg-green-50 border-green-300' : ''}" 
+             onclick="adminSystem.selectModule('${module.id}')">
+            <div class="flex items-center justify-between">
+                <div class="flex-1">
+                    <h5 class="font-medium text-sm">${module.title}</h5>
+                    ${module.description ? `<p class="text-xs text-gray-600">${module.description}</p>` : ''}
+                    <div class="text-xs text-gray-500 mt-1">
+                        ${module.tasks?.length || 0} Tasks, ~${module.estimatedMinutes || 15}min
+                    </div>
+                </div>
+                <div class="flex space-x-1">
+                    <button onclick="event.stopPropagation(); adminSystem.moveModule(${index}, -1)" 
+                            class="text-gray-400 hover:text-gray-600 text-sm" ${index === 0 ? 'disabled' : ''}>↑</button>
+                    <button onclick="event.stopPropagation(); adminSystem.moveModule(${index}, 1)" 
+                            class="text-gray-400 hover:text-gray-600 text-sm" ${index === this.currentLevel.modules.length - 1 ? 'disabled' : ''}>↓</button>
+                    <button onclick="event.stopPropagation(); adminSystem.deleteModule('${module.id}')" 
+                            class="text-red-400 hover:text-red-600 text-sm">🗑️</button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+};
+
+/**
+ * Rendert Task Builder
+ */
+AdminSystem.prototype.renderTaskBuilder = function() {
+    if (!this.currentModule) {
+        return '<div class="text-gray-500 text-sm text-center py-4">← Wähle ein Modul um Tasks zu erstellen</div>';
+    }
+    
+    return `
+        <!-- Task Type Selection -->
+        <div class="mb-4">
+            <h4 class="font-medium mb-2">Tasks für: "${this.currentModule.title}"</h4>
+            <select id="task-type-select" onchange="adminSystem.showTaskForm(this.value)" 
+                    class="w-full px-3 py-2 border border-gray-300 rounded mb-3">
+                <option value="">Task-Type wählen</option>
+                <option value="multiple_choice">Multiple Choice</option>
+                <option value="fill_blank">Fill in the Blank</option>
+                <option value="translation">Translation</option>
+                <option value="true_false">True/False</option>
+                <option value="sentence_building">Sentence Building</option>
+                <option value="image_match">Image Match</option>
+                <option value="audio_match">Audio Match</option>
+            </select>
+        </div>
+        
+        <!-- Dynamic Task Form -->
+        <div id="task-form-container">
+            <div class="text-gray-500 text-sm text-center py-2">↑ Wähle einen Task-Type</div>
+        </div>
+        
+        <!-- Current Tasks List -->
+        <div class="mt-4">
+            <h5 class="font-medium mb-2">Aktuelle Tasks:</h5>
+            <div class="space-y-2 max-h-48 overflow-y-auto">
+                ${this.renderTasksList()}
+            </div>
+        </div>
+    `;
+};
+
+/**
+ * Rendert Tasks-Liste
+ */
+AdminSystem.prototype.renderTasksList = function() {
+    if (!this.currentModule.tasks || this.currentModule.tasks.length === 0) {
+        return '<div class="text-gray-500 text-sm text-center py-2">Noch keine Tasks in diesem Modul</div>';
+    }
+    
+    return this.currentModule.tasks.map((task, index) => `
+        <div class="bg-gray-50 border border-gray-200 rounded p-2">
+            <div class="flex items-center justify-between">
+                <div class="flex-1">
+                    <div class="flex items-center space-x-2">
+                        <span class="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs font-medium">
+                            ${this.getTaskTypeLabel(task.type)}
+                        </span>
+                        <span class="text-sm font-medium">${this.getTaskPreview(task)}</span>
+                    </div>
+                </div>
+                <div class="flex space-x-1">
+                    <button onclick="adminSystem.moveTask(${index}, -1)" 
+                            class="text-gray-400 hover:text-gray-600 text-sm" ${index === 0 ? 'disabled' : ''}>↑</button>
+                    <button onclick="adminSystem.moveTask(${index}, 1)" 
+                            class="text-gray-400 hover:text-gray-600 text-sm" ${index === this.currentModule.tasks.length - 1 ? 'disabled' : ''}>↓</button>
+                    <button onclick="adminSystem.deleteTask(${index})" 
+                            class="text-red-400 hover:text-red-600 text-sm">🗑️</button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+};
+
+/**
+ * Rendert Course Preview
+ */
+AdminSystem.prototype.renderCoursePreview = function() {
+    if (!this.currentCourse.levels || this.currentCourse.levels.length === 0) {
+        return '<div class="text-gray-500 text-center py-8">Noch keine Struktur erstellt</div>';
+    }
+    
+    let totalTasks = 0;
+    let totalMinutes = 0;
+    
+    const previewHTML = this.currentCourse.levels.map((level, levelIndex) => {
+        const levelTasks = this.getLevelTaskCount(level);
+        const levelMinutes = this.getLevelMinutes(level);
+        totalTasks += levelTasks;
+        totalMinutes += levelMinutes;
+        
+        return `
+            <div class="border border-gray-200 rounded p-4 mb-4">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-lg font-semibold">📚 Level ${levelIndex + 1}: ${level.title}</h3>
+                    <div class="text-sm text-gray-600">
+                        ${levelTasks} Tasks, ~${levelMinutes}min
+                    </div>
+                </div>
+                
+                ${level.modules?.length > 0 ? `
+                    <div class="ml-4 space-y-2">
+                        ${level.modules.map((module, moduleIndex) => `
+                            <div class="bg-gray-50 rounded p-3">
+                                <div class="flex items-center justify-between">
+                                    <h4 class="font-medium">📖 Modul ${moduleIndex + 1}: ${module.title}</h4>
+                                    <div class="text-sm text-gray-600">
+                                        ${module.tasks?.length || 0} Tasks
+                                    </div>
+                                </div>
+                                ${module.tasks?.length > 0 ? `
+                                    <div class="ml-4 mt-2">
+                                        ${module.tasks.map((task, taskIndex) => `
+                                            <div class="text-sm text-gray-600 mb-1">
+                                                🎯 Task ${taskIndex + 1}: ${this.getTaskTypeLabel(task.type)} - "${this.getTaskPreview(task)}"
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                ` : '<div class="text-sm text-gray-500 ml-4 mt-1">Noch keine Tasks</div>'}
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : '<div class="text-sm text-gray-500 ml-4">Noch keine Module</div>'}
+            </div>
+        `;
+    }).join('');
+    
+    return `
+        <div class="mb-4 p-4 bg-blue-50 rounded-lg">
+            <h3 class="font-semibold mb-2">📊 Kurs-Statistiken</h3>
+            <div class="grid grid-cols-3 gap-4 text-sm">
+                <div class="text-center">
+                    <span class="block text-2xl font-bold text-blue-600">${this.currentCourse.levels.length}</span>
+                    <span class="text-gray-600">Levels</span>
+                </div>
+                <div class="text-center">
+                    <span class="block text-2xl font-bold text-green-600">${totalTasks}</span>
+                    <span class="text-gray-600">Tasks</span>
+                </div>
+                <div class="text-center">
+                    <span class="block text-2xl font-bold text-purple-600">~${Math.round(totalMinutes)}min</span>
+                    <span class="text-gray-600">Geschätzte Zeit</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="space-y-4">
+            ${previewHTML}
+        </div>
+    `;
+};
+
+/**
+ * Fügt ein neues Level hinzu
+ */
+AdminSystem.prototype.addLevel = function() {
+    const title = document.getElementById('new-level-title').value.trim();
+    const description = document.getElementById('new-level-description').value.trim();
+    
+    if (!title) {
+        this.showNotification('❌ Level-Name ist erforderlich', 'error');
+        return;
+    }
+    
+    const newLevel = {
+        id: 'level_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        title: title,
+        description: description,
+        icon: this.currentCourse.levels.length + 1,
+        modules: []
+    };
+    
+    this.currentCourse.levels.push(newLevel);
+    
+    // UI aktualisieren
+    document.getElementById('new-level-title').value = '';
+    document.getElementById('new-level-description').value = '';
+    
+    this.refreshBuilder();
+    this.showNotification(`✅ Level "${title}" hinzugefügt`, 'success');
+};
+
+/**
+ * Wählt ein Level aus
+ */
+AdminSystem.prototype.selectLevel = function(levelId) {
+    this.currentLevel = this.currentCourse.levels.find(l => l.id === levelId);
+    this.currentModule = null; // Reset module selection
+    this.refreshBuilder();
+};
+
+/**
+ * Fügt ein neues Modul hinzu
+ */
+AdminSystem.prototype.addModule = function() {
+    if (!this.currentLevel) {
+        this.showNotification('❌ Bitte wähle zuerst ein Level', 'error');
+        return;
+    }
+    
+    const title = document.getElementById('new-module-title').value.trim();
+    const description = document.getElementById('new-module-description').value.trim();
+    const minutes = parseInt(document.getElementById('new-module-minutes').value) || 15;
+    
+    if (!title) {
+        this.showNotification('❌ Modul-Name ist erforderlich', 'error');
+        return;
+    }
+    
+    const newModule = {
+        id: 'module_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        title: title,
+        description: description,
+        estimatedMinutes: minutes,
+        tasks: []
+    };
+    
+    if (!this.currentLevel.modules) {
+        this.currentLevel.modules = [];
+    }
+    
+    this.currentLevel.modules.push(newModule);
+    
+    // UI aktualisieren
+    document.getElementById('new-module-title').value = '';
+    document.getElementById('new-module-description').value = '';
+    document.getElementById('new-module-minutes').value = '15';
+    
+    this.refreshBuilder();
+    this.showNotification(`✅ Modul "${title}" hinzugefügt`, 'success');
+};
+
+/**
+ * Wählt ein Modul aus
+ */
+AdminSystem.prototype.selectModule = function(moduleId) {
+    if (!this.currentLevel) return;
+    
+    this.currentModule = this.currentLevel.modules.find(m => m.id === moduleId);
+    this.refreshBuilder();
+};
+
+/**
+ * Zeigt Task-Form basierend auf Type
+ */
+AdminSystem.prototype.showTaskForm = function(taskType) {
+    const container = document.getElementById('task-form-container');
+    if (!taskType) {
+        container.innerHTML = '<div class="text-gray-500 text-sm text-center py-2">↑ Wähle einen Task-Type</div>';
+        return;
+    }
+    
+    const forms = {
+        'multiple_choice': this.getMultipleChoiceForm(),
+        'fill_blank': this.getFillBlankForm(),
+        'translation': this.getTranslationForm(),
+        'true_false': this.getTrueFalseForm(),
+        'sentence_building': this.getSentenceBuildingForm(),
+        'image_match': this.getImageMatchForm(),
+        'audio_match': this.getAudioMatchForm()
+    };
+    
+    container.innerHTML = forms[taskType] || '<div class="text-red-500">Task-Type nicht gefunden</div>';
+};
+
+/**
+ * Task-Form Templates
+ */
+AdminSystem.prototype.getMultipleChoiceForm = function() {
+    return `
+        <div class="space-y-3">
+            <input type="text" id="mc-question" placeholder="Frage eingeben" 
+                   class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+            <div class="space-y-2">
+                <input type="text" id="mc-option-0" placeholder="Option 1" 
+                       class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                <input type="text" id="mc-option-1" placeholder="Option 2" 
+                       class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                <input type="text" id="mc-option-2" placeholder="Option 3" 
+                       class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                <input type="text" id="mc-option-3" placeholder="Option 4" 
+                       class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+            </div>
+            <select id="mc-correct" class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                <option value="">Richtige Antwort wählen</option>                   
+                <option value="0">Option 1</option>
+                <option value="1">Option 2</option>
+                <option value="2">Option 3</option>
+                <option value="3">Option 4</option>
+            </select>
+            <textarea id="mc-explanation" placeholder="Erklärung (optional)" 
+                      class="w-full px-3 py-2 border border-gray-300 rounded text-sm" rows="2"></textarea>
+            <button onclick="adminSystem.addTask('multiple_choice')" 
+                    class="w-full bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded text-sm">
+                ➕ Multiple Choice Task hinzufügen
+            </button>
+        </div>
+    `;
+};
+
+AdminSystem.prototype.getFillBlankForm = function() {
+    return `
+        <div class="space-y-3">
+            <input type="text" id="fb-sentence" placeholder="Satz mit __BLANK__ für Lücken" 
+                   class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+            <input type="text" id="fb-answers" placeholder="Richtige Antworten (komma-getrennt)" 
+                   class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+            <input type="text" id="fb-hint" placeholder="Hinweis (optional)" 
+                   class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+            <button onclick="adminSystem.addTask('fill_blank')" 
+                    class="w-full bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded text-sm">
+                ➕ Fill Blank Task hinzufügen
+            </button>
+        </div>
+    `;
+};
+
+AdminSystem.prototype.getTranslationForm = function() {
+    return `
+        <div class="space-y-3">
+            <input type="text" id="tr-source" placeholder="Quelltext" 
+                   class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+            <input type="text" id="tr-target" placeholder="Zielsprache" 
+                   class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+            <textarea id="tr-correct" placeholder="Richtige Übersetzungen (eine pro Zeile)" 
+                      class="w-full px-3 py-2 border border-gray-300 rounded text-sm" rows="3"></textarea>
+            <input type="text" id="tr-hint" placeholder="Hinweis (optional)" 
+                   class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+            <button onclick="adminSystem.addTask('translation')" 
+                    class="w-full bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded text-sm">
+                ➕ Translation Task hinzufügen
+            </button>
+        </div>
+    `;
+};
+
+AdminSystem.prototype.getTrueFalseForm = function() {
+    return `
+        <div class="space-y-3">
+            <textarea id="tf-statement" placeholder="Aussage eingeben" 
+                      class="w-full px-3 py-2 border border-gray-300 rounded text-sm" rows="3"></textarea>
+            <select id="tf-correct" class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                <option value="">Richtige Antwort wählen</option>
+                <option value="true">Richtig</option>
+                <option value="false">Falsch</option>
+            </select>
+            <input type="text" id="tf-context" placeholder="Kontext (optional)" 
+                   class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+            <button onclick="adminSystem.addTask('true_false')" 
+                    class="w-full bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded text-sm">
+                ➕ True/False Task hinzufügen
+            </button>
+        </div>
+    `;
+};
+
+AdminSystem.prototype.getSentenceBuildingForm = function() {
+    return `
+        <div class="space-y-3">
+            <input type="text" id="sb-sentence" placeholder="Richtiger Satz" 
+                   class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+            <input type="text" id="sb-translation" placeholder="Übersetzung/Bedeutung" 
+                   class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+            <button onclick="adminSystem.addTask('sentence_building')" 
+                    class="w-full bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded text-sm">
+                ➕ Sentence Building Task hinzufügen
+            </button>
+        </div>
+    `;
+};
+
+AdminSystem.prototype.getImageMatchForm = function() {
+    return `
+        <div class="space-y-3">
+            <input type="url" id="im-image" placeholder="Bild-URL" 
+                   class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+            <div class="space-y-2">
+                <input type="text" id="im-option-0" placeholder="Option 1" 
+                       class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                <input type="text" id="im-option-1" placeholder="Option 2" 
+                       class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                <input type="text" id="im-option-2" placeholder="Option 3" 
+                       class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                <input type="text" id="im-option-3" placeholder="Option 4" 
+                       class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+            </div>
+            <select id="im-correct" class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                <option value="">Richtige Antwort wählen</option>
+                <option value="0">Option 1</option>
+                <option value="1">Option 2</option>
+                <option value="2">Option 3</option>
+                <option value="3">Option 4</option>
+            </select>
+            <button onclick="adminSystem.addTask('image_match')" 
+                    class="w-full bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded text-sm">
+                ➕ Image Match Task hinzufügen
+            </button>
+        </div>
+    `;
+};
+
+AdminSystem.prototype.getAudioMatchForm = function() {
+    return `
+        <div class="space-y-3">
+            <input type="url" id="am-audio" placeholder="Audio-URL" 
+                   class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+            <div class="space-y-2">
+                <input type="text" id="am-option-0" placeholder="Option 1" 
+                       class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                <input type="text" id="am-option-1" placeholder="Option 2" 
+                       class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                <input type="text" id="am-option-2" placeholder="Option 3" 
+                       class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                <input type="text" id="am-option-3" placeholder="Option 4" 
+                       class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+            </div>
+            <select id="am-correct" class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                <option value="">Richtige Antwort wählen</option>
+                <option value="0">Option 1</option>
+                <option value="1">Option 2</option>
+                <option value="2">Option 3</option>
+                <option value="3">Option 4</option>
+            </select>
+            <button onclick="adminSystem.addTask('audio_match')" 
+                    class="w-full bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded text-sm">
+                ➕ Audio Match Task hinzufügen
+            </button>
+        </div>
+    `;
+};
+
+/**
+ * Fügt einen Task hinzu
+ */
+AdminSystem.prototype.addTask = function(taskType) {
+    if (!this.currentModule) {
+        this.showNotification('❌ Bitte wähle zuerst ein Modul', 'error');
+        return;
+    }
+    
+    const taskData = this.collectTaskData(taskType);
+    if (!taskData) return;
+    
+    const newTask = {
+        id: 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        type: taskType,
+        data: taskData
+    };
+    
+    if (!this.currentModule.tasks) {
+        this.currentModule.tasks = [];
+    }
+    
+    this.currentModule.tasks.push(newTask);
+    
+    // Form zurücksetzen
+    this.showTaskForm(taskType);
+    
+    this.refreshBuilder();
+    this.showNotification(`✅ ${this.getTaskTypeLabel(taskType)} Task hinzugefügt`, 'success');
+};
+
+/**
+ * Sammelt Task-Daten basierend auf Type
+ */
+AdminSystem.prototype.collectTaskData = function(taskType) {
+    switch (taskType) {
+        case 'multiple_choice':
+            const question = document.getElementById('mc-question').value.trim();
+            const options = [
+                document.getElementById('mc-option-0').value.trim(),
+                document.getElementById('mc-option-1').value.trim(),
+                document.getElementById('mc-option-2').value.trim(),
+                document.getElementById('mc-option-3').value.trim()
+            ].filter(opt => opt);
+            const correct = parseInt(document.getElementById('mc-correct').value);
+            const explanation = document.getElementById('mc-explanation').value.trim();
+            
+            if (!question || options.length < 2 || isNaN(correct)) {
+                this.showNotification('❌ Bitte fülle alle Felder aus', 'error');
+                return null;
+            }
+            
+            return { question, options, correctAnswer: correct, explanation };
+            
+        case 'fill_blank':
+            const sentence = document.getElementById('fb-sentence').value.trim();
+            const answers = document.getElementById('fb-answers').value.trim().split(',').map(a => a.trim());
+            const hint = document.getElementById('fb-hint').value.trim();
+            
+            if (!sentence || !answers[0]) {
+                this.showNotification('❌ Satz und Antworten sind erforderlich', 'error');
+                return null;
+            }
+            
+            return { sentence, blanks: answers, hints: hint ? [hint] : [] };
+            
+        case 'translation':
+            const sourceText = document.getElementById('tr-source').value.trim();
+            const targetLanguage = document.getElementById('tr-target').value.trim();
+            const correctTranslations = document.getElementById('tr-correct').value.trim().split('\n').map(t => t.trim()).filter(t => t);
+            const trHint = document.getElementById('tr-hint').value.trim();
+            
+            if (!sourceText || !targetLanguage || !correctTranslations[0]) {
+                this.showNotification('❌ Quelltext, Zielsprache und Übersetzungen sind erforderlich', 'error');
+                return null;
+            }
+            
+            return { sourceText, targetLanguage, correctTranslations, hint: trHint };
+            
+        case 'true_false':
+            const statement = document.getElementById('tf-statement').value.trim();
+            const isTrue = document.getElementById('tf-correct').value === 'true';
+            const context = document.getElementById('tf-context').value.trim();
+            
+            if (!statement || document.getElementById('tf-correct').value === '') {
+                this.showNotification('❌ Aussage und Antwort sind erforderlich', 'error');
+                return null;
+            }
+            
+            return { statement, isTrue, context };
+            
+        case 'sentence_building':
+            const correctSentence = document.getElementById('sb-sentence').value.trim();
+            const translation = document.getElementById('sb-translation').value.trim();
+            
+            if (!correctSentence || !translation) {
+                this.showNotification('❌ Satz und Übersetzung sind erforderlich', 'error');
+                return null;
+            }
+            
+            return { correctSentence, words: correctSentence.split(' '), translation };
+            
+        case 'image_match':
+            const imageUrl = document.getElementById('im-image').value.trim();
+            const imOptions = [
+                document.getElementById('im-option-0').value.trim(),
+                document.getElementById('im-option-1').value.trim(),
+                document.getElementById('im-option-2').value.trim(),
+                document.getElementById('im-option-3').value.trim()
+            ].filter(opt => opt);
+            const imCorrect = parseInt(document.getElementById('im-correct').value);
+            
+            if (!imageUrl || imOptions.length < 2 || isNaN(imCorrect)) {
+                this.showNotification('❌ Bild-URL, Optionen und richtige Antwort sind erforderlich', 'error');
+                return null;
+            }
+            
+            return { imageUrl, options: imOptions, correctAnswer: imCorrect };
+            
+        case 'audio_match':
+            const audioUrl = document.getElementById('am-audio').value.trim();
+            const amOptions = [
+                document.getElementById('am-option-0').value.trim(),
+                document.getElementById('am-option-1').value.trim(),
+                document.getElementById('am-option-2').value.trim(),
+                document.getElementById('am-option-3').value.trim()
+            ].filter(opt => opt);
+            const amCorrect = parseInt(document.getElementById('am-correct').value);
+            
+            if (!audioUrl || amOptions.length < 2 || isNaN(amCorrect)) {
+                this.showNotification('❌ Audio-URL, Optionen und richtige Antwort sind erforderlich', 'error');
+                return null;
+            }
+            
+            return { audioUrl, options: amOptions, correctAnswer: amCorrect };
+            
+        default:
+            return null;
+    }
+};
+
+/**
+ * Hilfsfunktionen
+ */
+AdminSystem.prototype.getTaskTypeLabel = function(type) {
+    const labels = {
+        'multiple_choice': 'Multiple Choice',
+        'fill_blank': 'Fill Blank',
+        'translation': 'Translation',
+        'true_false': 'True/False',
+        'sentence_building': 'Sentence Building', 
+        'image_match': 'Image Match',
+        'audio_match': 'Audio Match'
+    };
+    return labels[type] || type;
+};
+
+AdminSystem.prototype.getTaskPreview = function(task) {
+    switch (task.type) {
+        case 'multiple_choice':
+            return task.data.question;
+        case 'fill_blank':
+            return task.data.sentence;
+        case 'translation':
+            return task.data.sourceText;
+        case 'true_false':
+            return task.data.statement.substring(0, 50) + '...';
+        case 'sentence_building':
+            return task.data.correctSentence;
+        case 'image_match':
+            return 'Image: ' + task.data.imageUrl.split('/').pop();
+        case 'audio_match':
+            return 'Audio: ' + task.data.audioUrl.split('/').pop();
+        default:
+            return 'Unknown task';
+    }
+};
+
+AdminSystem.prototype.getLevelTaskCount = function(level) {
+    if (!level.modules) return 0;
+    return level.modules.reduce((total, module) => total + (module.tasks?.length || 0), 0);
+};
+
+AdminSystem.prototype.getLevelMinutes = function(level) {
+    if (!level.modules) return 0;
+    return level.modules.reduce((total, module) => total + (module.estimatedMinutes || 15), 0);
+};
+
+/**
+ * Move-Funktionen für Drag & Drop Simulation
+ */
+AdminSystem.prototype.moveLevel = function(index, direction) {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= this.currentCourse.levels.length) return;
+    
+    const levels = this.currentCourse.levels;
+    [levels[index], levels[newIndex]] = [levels[newIndex], levels[index]];
+    
+    this.refreshBuilder();
+};
+
+AdminSystem.prototype.moveModule = function(index, direction) {
+    if (!this.currentLevel) return;
+    
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= this.currentLevel.modules.length) return;
+    
+    const modules = this.currentLevel.modules;
+    [modules[index], modules[newIndex]] = [modules[newIndex], modules[index]];
+    
+    this.refreshBuilder();
+};
+
+AdminSystem.prototype.moveTask = function(index, direction) {
+    if (!this.currentModule) return;
+    
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= this.currentModule.tasks.length) return;
+    
+    const tasks = this.currentModule.tasks;
+    [tasks[index], tasks[newIndex]] = [tasks[newIndex], tasks[index]];
+    
+    this.refreshBuilder();
+};
+
+/**
+ * Delete-Funktionen
+ */
+AdminSystem.prototype.deleteLevel = function(levelId) {
+    if (confirm('Level wirklich löschen? Alle Module und Tasks gehen verloren.')) {
+        const index = this.currentCourse.levels.findIndex(l => l.id === levelId);
+        if (index > -1) {
+            this.currentCourse.levels.splice(index, 1);
+            if (this.currentLevel?.id === levelId) {
+                this.currentLevel = null;
+                this.currentModule = null;
+            }
+            this.refreshBuilder();
+            this.showNotification('✅ Level gelöscht', 'success');
+        }
+    }
+};
+
+AdminSystem.prototype.deleteModule = function(moduleId) {
+    if (!this.currentLevel) return;
+    
+    if (confirm('Modul wirklich löschen? Alle Tasks gehen verloren.')) {
+        const index = this.currentLevel.modules.findIndex(m => m.id === moduleId);
+        if (index > -1) {
+            this.currentLevel.modules.splice(index, 1);
+            if (this.currentModule?.id === moduleId) {
+                this.currentModule = null;
+            }
+            this.refreshBuilder();
+            this.showNotification('✅ Modul gelöscht', 'success');
+        }
+    }
+};
+
+AdminSystem.prototype.deleteTask = function(taskIndex) {
+    if (!this.currentModule) return;
+    
+    if (confirm('Task wirklich löschen?')) {
+        this.currentModule.tasks.splice(taskIndex, 1);
+        this.refreshBuilder();
+        this.showNotification('✅ Task gelöscht', 'success');
+    }
+};
+
+/**
+ * Speichert die Course-Struktur
+ */
+AdminSystem.prototype.saveCourseStructure = function() {
+    if (!this.currentCourse) return;
+    
+    // Validation
+    if (this.currentCourse.levels.length === 0) {
+        this.showNotification('❌ Mindestens ein Level ist erforderlich', 'error');
+        return;
+    }
+    
+    const hasModules = this.currentCourse.levels.some(level => level.modules?.length > 0);
+    if (!hasModules) {
+        this.showNotification('❌ Mindestens ein Modul ist erforderlich', 'error');
+        return;
+    }
+    
+    const hasTasks = this.currentCourse.levels.some(level => 
+        level.modules?.some(module => module.tasks?.length > 0)
+    );
+    if (!hasTasks) {
+        this.showNotification('❌ Mindestens eine Aufgabe ist erforderlich', 'error');
+        return;
+    }
+    
+    // Course direkt im Array aktualisieren
+    const courseIndex = courseManager.courses.findIndex(c => c.id === this.currentCourse.id);
+    let success = false;
+    
+    if (courseIndex > -1) {
+        // Existierenden Kurs aktualisieren
+        courseManager.courses[courseIndex] = this.currentCourse;
+        courseManager.saveCourses(); // Courses persistieren
+        success = true;
+    } else {
+        console.error('❌ Kurs nicht im CourseManager gefunden:', this.currentCourse.id);
+    }
+    
+    if (success) {
+        this.showNotification('✅ Kurs-Struktur erfolgreich gespeichert!', 'success');
+        setTimeout(() => this.loadAdminDashboard(), 1500);
+    } else {
+        this.showNotification('❌ Fehler beim Speichern', 'error');
+    }
+};
+
+/**
+ * Aktualisiert den Builder
+ */
+AdminSystem.prototype.refreshBuilder = function() {
+    if (!this.currentCourse) return;
+    
+    // Update levels list
+    const levelsList = document.getElementById('levels-list');
+    if (levelsList) {
+        levelsList.innerHTML = this.renderLevelsList();
+    }
+    
+    // Update module management
+    const moduleManagement = document.getElementById('module-management');
+    if (moduleManagement) {
+        moduleManagement.innerHTML = this.renderModuleManagement();
+    }
+    
+    // Update task builder
+    const taskBuilder = document.getElementById('task-builder');
+    if (taskBuilder) {
+        taskBuilder.innerHTML = this.renderTaskBuilder();
+    }
+    
+    // Update course preview
+    const coursePreview = document.getElementById('course-preview');
+    if (coursePreview) {
+        coursePreview.innerHTML = this.renderCoursePreview();
+    }
+};
+
+console.log('🏗️ Universal Course Structure Builder implementiert!');
+console.log('🎯 Features: Beliebige Kurse, 7 Task-Types, Drag&Drop, Live-Preview');
 
 // ========================================
 // GLOBALE INSTANZ UND INTEGRATION
