@@ -109,28 +109,28 @@ class LearningEngine {
      */
     async startLesson(courseId, levelId, moduleId) {
         console.log('🚀 Starte Lektion:', { courseId, levelId, moduleId });
-        
+
         // Kurs-Daten laden
         this.currentCourse = courseManager.getCourse(courseId);
         if (!this.currentCourse) {
             this.showError('Kurs nicht gefunden');
             return;
         }
-        
+
         // Level finden
         this.currentLevel = this.currentCourse.levels.find(l => l.id === levelId);
         if (!this.currentLevel) {
             this.showError('Level nicht gefunden');
             return;
         }
-        
+
         // Modul finden
         this.currentModule = this.currentLevel.modules.find(m => m.id === moduleId);
         if (!this.currentModule) {
             this.showError('Modul nicht gefunden');
             return;
         }
-        
+
         // Session initialisieren
         this.taskIndex = 0;
         this.sessionXP = 0;
@@ -138,10 +138,13 @@ class LearningEngine {
         this.sessionTotal = this.currentModule.tasks.length;
         this.startTime = Date.now();
         this.hearts = LEARNING_CONFIG.MAX_HEARTS;
-        
-        // UI aufbauen
-        this.buildLessonUI();
-        
+
+        // Fullscreen-Modus aktivieren
+        this.enterFullscreenMode();
+
+        // Fullscreen UI aufbauen
+        this.buildFullscreenLessonUI();
+
         // Erste Aufgabe laden
         this.loadNextTask();
     }
@@ -152,7 +155,7 @@ class LearningEngine {
     buildLessonUI() {
         this.container.innerHTML = `
             <!-- Lesson Header -->
-            <div class="bg-white shadow-sm border-b border-gray-200 p-4">
+            <div class="bg-white shadow-sm border-b border-gray-200 p-4 mt-16">
                 <div class="max-w-4xl mx-auto flex items-center justify-between">
                     <!-- Progress Bar -->
                     <div class="flex-1 mr-6">
@@ -181,7 +184,7 @@ class LearningEngine {
             </div>
             
             <!-- Task Container -->
-            <div class="min-h-screen bg-gray-50 py-8">
+            <div class="bg-gray-50 py-8">
                 <div class="max-w-2xl mx-auto px-4">
                     <div id="task-content" class="bg-white rounded-lg shadow-lg p-8 min-h-96">
                         <!-- Task wird hier geladen -->
@@ -1027,9 +1030,8 @@ class LearningEngine {
      * Verlässt die aktuelle Lektion
      */
     exitLesson() {
-        if (confirm('Möchtest du die Lektion wirklich verlassen? Dein Fortschritt geht verloren.')) {
-            this.backToCourse();
-        }
+        console.log('🚪 Lektion verlassen');
+        this.exitLearningMode();
     }
     
     /**
@@ -1061,11 +1063,8 @@ class LearningEngine {
      * Kehrt zur Kurs-Übersicht zurück
      */
     backToCourse() {
-        if (window.showPage) {
-            showPage('learning');
-        } else {
-            window.location.href = '#learning';
-        }
+        console.log('🔙 Zurück zur Kurs-Übersicht');
+        this.exitLearningMode();
     }
     
     // ========================================
@@ -1078,6 +1077,211 @@ class LearningEngine {
     setupUI() {
         this.container.className = 'learning-container';
         console.log('🎨 Learning-UI eingerichtet');
+    }
+
+    /**
+     * Bereinigt die Learning-Session
+     */
+    cleanupLearningSession() {
+        this.taskIndex = 0;
+        this.sessionXP = 0;
+        this.sessionCorrect = 0;
+        this.sessionTotal = 0;
+        this.hearts = LEARNING_CONFIG.MAX_HEARTS;
+        this.initialized = false;
+
+        const overlay = document.getElementById('result-overlay');
+        if (overlay) {
+            overlay.classList.add('hidden');
+        }
+
+        console.log('🧹 Learning-Session bereinigt');
+    }
+
+    /**
+     * Startet den Vollbild-Learning-Modus
+     */
+    enterFullscreenMode() {
+        console.log('🎮 Entering Fullscreen Learning Mode');
+
+        // Navigation ausblenden
+        const navbar = document.getElementById('navbar');
+        if (navbar) {
+            navbar.style.display = 'none';
+        }
+
+        // Body-Styling für Fullscreen
+        document.body.style.overflow = 'hidden';
+
+        // Learning-Page auf Fullscreen umstellen
+        const learningPage = document.getElementById('learning-page');
+        if (learningPage) {
+            learningPage.style.position = 'fixed';
+            learningPage.style.top = '0';
+            learningPage.style.left = '0';
+            learningPage.style.width = '100vw';
+            learningPage.style.height = '100vh';
+            learningPage.style.zIndex = '1000';
+            learningPage.style.backgroundColor = '#f9fafb';
+        }
+    }
+
+    /**
+     * Verlässt den Vollbild-Learning-Modus
+     */
+    exitLearningMode() {
+        console.log('🚪 Exiting Learning Mode');
+    
+        // Session cleanup
+        this.cleanupLearningSession();
+    
+        // Navigation wieder anzeigen
+        const navbar = document.getElementById('navbar');
+        if (navbar) {
+            navbar.style.display = 'block';
+        }
+    
+        // Body-Styling zurücksetzen
+        document.body.style.overflow = 'auto';
+    
+        // Learning-Page styling zurücksetzen
+        const learningPage = document.getElementById('learning-page');
+        if (learningPage) {
+            learningPage.style.position = '';
+            learningPage.style.top = '';
+            learningPage.style.left = '';
+            learningPage.style.width = '';
+            learningPage.style.height = '';
+            learningPage.style.zIndex = '';
+            learningPage.style.backgroundColor = '';
+            
+            // ✅ FIX: Learning-Page HTML wiederherstellen
+            learningPage.innerHTML = `
+                <div class="pt-16 max-w-4xl mx-auto py-6 px-4">
+                    <h1 class="text-3xl font-bold text-gray-900 mb-6">Lernen</h1>
+                    <div class="bg-white shadow rounded-lg p-6">
+                        <div id="learning-content">
+                            <p class="text-gray-600">Lade Lern-Inhalte...</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    
+        // Zurück zur normalen Learning-Page
+        if (window.loadAdvancedLearningInterface) {
+            setTimeout(() => window.loadAdvancedLearningInterface(), 100);
+        }
+    }
+
+    /**
+     * Bereinigt die Learning-Session
+     */
+    cleanupLearningSession() {
+        this.taskIndex = 0;
+        this.sessionXP = 0;
+        this.sessionCorrect = 0;
+        this.sessionTotal = 0;
+        this.hearts = LEARNING_CONFIG.MAX_HEARTS;
+        this.initialized = false;
+        this.currentCourse = null;
+        this.currentLevel = null;
+        this.currentModule = null;
+
+        // UI cleanup
+        const overlay = document.getElementById('result-overlay');
+        if (overlay) {
+            overlay.classList.add('hidden');
+        }
+
+        console.log('🧹 Learning-Session bereinigt');
+    }
+
+    /**
+     * Neue buildLessonUI für Fullscreen
+     */
+    buildFullscreenLessonUI() {
+        this.container.innerHTML = `
+            <!-- Fullscreen Learning Interface -->
+            <div class="learning-fullscreen min-h-screen bg-gray-50">
+
+                <!-- Top Header -->
+                <div class="bg-white shadow-sm border-b border-gray-200 p-4">
+                    <div class="max-w-4xl mx-auto flex items-center justify-between">
+
+                        <!-- Left: Back Button & Progress -->
+                        <div class="flex items-center flex-1">
+                            <button onclick="learningEngine.exitLesson()" 
+                                    class="flex items-center text-gray-600 hover:text-gray-800 mr-6 font-medium">
+                                <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                                </svg>
+                                Zurück
+                            </button>
+
+                            <div class="flex-1 max-w-md">
+                                <h2 class="text-lg font-semibold text-gray-900 mb-1">${this.currentModule.title}</h2>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div id="lesson-progress" class="bg-green-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                                </div>
+                                <p class="text-xs text-gray-600 mt-1">
+                                    Aufgabe <span id="task-counter">0</span> von ${this.sessionTotal}
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Right: Hearts -->
+                        <div class="flex items-center space-x-1">
+                            <div id="hearts-container" class="flex space-x-1">
+                                ${Array(LEARNING_CONFIG.MAX_HEARTS).fill(0).map((_, i) => 
+                                    `<div class="heart text-red-500 text-2xl" data-heart="${i}">❤️</div>`
+                                ).join('')}
+                            </div>
+                            <span class="ml-2 text-sm text-gray-600 font-medium" id="hearts-count">${this.hearts}</span>
+                        </div>
+                    </div>
+                </div>
+                            
+                <!-- Task Area -->
+                <div class="flex-1 py-8">
+                    <div class="max-w-3xl mx-auto px-4">
+                        <div id="task-content" class="bg-white rounded-xl shadow-lg p-8 min-h-96">
+                            <!-- Task wird hier geladen -->
+                        </div>
+                            
+                        <!-- Action Buttons -->
+                        <div class="mt-8 flex justify-between items-center">
+                            <button id="skip-btn" onclick="learningEngine.skipTask()" 
+                                    class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-3 rounded-xl font-medium transition-colors">
+                                Überspringen
+                            </button>
+                            
+                            <button id="check-btn" onclick="learningEngine.checkAnswer()" 
+                                    class="bg-blue-500 hover:bg-blue-600 text-white px-8 py-3 rounded-xl font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                                    disabled>
+                                Prüfen
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+                            
+            <!-- Result Overlay -->
+            <div id="result-overlay" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-[1010]">
+                <div class="bg-white rounded-xl p-8 max-w-md w-full mx-4 text-center shadow-2xl">
+                    <div id="result-icon" class="text-6xl mb-4"></div>
+                    <h3 id="result-title" class="text-2xl font-bold mb-2"></h3>
+                    <p id="result-message" class="text-gray-600 mb-4"></p>
+                    <div id="result-xp" class="text-blue-500 font-bold text-lg mb-4 hidden">
+                        +<span id="xp-amount">0</span> XP
+                    </div>
+                    <button id="continue-btn" onclick="learningEngine.continueLesson()" 
+                            class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-xl font-medium w-full transition-colors">
+                        Weiter
+                    </button>
+                </div>
+            </div>
+        `;
     }
 }
 

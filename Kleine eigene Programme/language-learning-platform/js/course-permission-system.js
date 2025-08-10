@@ -193,14 +193,14 @@ class CoursePermissionManager {
     checkAccess(studentId, courseId, levelId, moduleId) {
         // 1. Teacher-Permission prüfen
         const hasTeacherPermission = this.hasPermission(studentId, courseId, levelId, moduleId);
-        
+
         // 2. Student-Progress prüfen
         const userProgress = progressManager.getUserProgress(studentId);
         const courseProgress = userProgress.courseProgress[courseId];
-        
+
         let hasProgress = false;
         let progressReason = '';
-        
+
         // WICHTIG: Startmodul-Check AUSSERHALB von courseProgress (für neue Kurse)
         const course = courseManager.getCourse(courseId);
         if (course) {
@@ -210,7 +210,7 @@ class CoursePermissionManager {
                 if (module) {
                     const moduleIndex = level.modules.findIndex(m => m.id === moduleId);
                     const levelIndex = course.levels.findIndex(l => l.id === levelId);
-                    
+
                     // Erstes Modul im ersten Level: immer verfügbar (auch ohne courseProgress)
                     if (levelIndex === 0 && moduleIndex === 0) {
                         hasProgress = true;
@@ -220,7 +220,7 @@ class CoursePermissionManager {
                     else if (courseProgress) {
                         const completedModules = courseProgress.completedModules || [];
                         const completedTasks = courseProgress.completedTasks || [];
-                        
+
                         // Prüfe ob vorheriges Modul abgeschlossen
                         if (moduleIndex > 0) {
                             const previousModule = level.modules[moduleIndex - 1];
@@ -228,7 +228,7 @@ class CoursePermissionManager {
                             const completedPreviousTasks = previousModuleTasks.filter(taskId => 
                                 completedTasks.includes(taskId)
                             );
-                            
+
                             if (completedPreviousTasks.length >= previousModuleTasks.length * 0.7) { // 70% Completion
                                 hasProgress = true;
                                 progressReason = 'Vorheriges Modul zu 70% abgeschlossen';
@@ -243,11 +243,11 @@ class CoursePermissionManager {
                             previousLevel.modules.forEach(mod => {
                                 mod.tasks.forEach(task => previousLevelTasks.push(task.id));
                             });
-                            
+
                             const completedPreviousLevelTasks = previousLevelTasks.filter(taskId => 
                                 completedTasks.includes(taskId)
                             );
-                            
+
                             if (completedPreviousLevelTasks.length >= previousLevelTasks.length * 0.8) { // 80% Completion für Level
                                 hasProgress = true;
                                 progressReason = 'Vorheriges Level zu 80% abgeschlossen';
@@ -262,10 +262,10 @@ class CoursePermissionManager {
                 }
             }
         }
-        
+
         // 3. Auto-Progression prüfen
         const autoProgression = this.getAutoProgression(studentId, courseId);
-        
+
         return {
             hasAccess: hasTeacherPermission && hasProgress,
             hasTeacherPermission,
@@ -899,12 +899,13 @@ function enhanceTeacherStudentInterface() {
  * Erweitert die Learning-Interface um Permission-Checks
  */
 function enhanceLearningInterface() {
+    
     const originalLoadAdvancedLearningInterface = window.loadAdvancedLearningInterface;
     
     window.loadAdvancedLearningInterface = function() {
-        console.log('📚 Lade erweiterte Lern-Oberfläche mit Permissions...');
+        console.log('📚 Lade Learning-Interface mit Permission-Integration...');
         
-        const learningContainer = document.querySelector('#learning-page .bg-white');
+        const learningContainer = document.getElementById('learning-content');
         if (!learningContainer) return;
         
         const currentUser = getCurrentUser();
@@ -913,10 +914,19 @@ function enhanceLearningInterface() {
         const userProgress = progressManager.getUserProgress(currentUser.id);
         const availableCourses = getAvailableCoursesForUser(currentUser.id, currentUser.userType);
         
-        // Zeige ALLE verfügbaren Kurse (bessere UX für Studenten)
-        const coursesToShow = availableCourses;
+        // Auto-Progression für alle Kurse prüfen
+        availableCourses.forEach(course => {
+            if (userProgress.coursesEnrolled.includes(course.id)) {
+                coursePermissionManager.checkAutoProgression(currentUser.id, course.id);
+            }
+        });
         
-        if (coursesToShow.length === 0) {
+        // Nur eingeschriebene Kurse anzeigen
+        const enrolledCourses = availableCourses.filter(course => 
+            userProgress.coursesEnrolled.includes(course.id)
+        );
+        
+        if (enrolledCourses.length === 0) {
             learningContainer.innerHTML = `
                 <div class="text-center py-8">
                     <h3 class="text-xl font-semibold text-gray-900 mb-4">Noch keine Kurse</h3>
@@ -929,18 +939,13 @@ function enhanceLearningInterface() {
             return;
         }
         
-        // Auto-Progression für alle Kurse prüfen
-        coursesToShow.forEach(course => {
-            coursePermissionManager.checkAutoProgression(currentUser.id, course.id);
-        });
-        
         // Kurs-Interface mit Permission-System
         let courseHTML = `
             <div class="space-y-8">
                 <h2 class="text-2xl font-bold text-gray-900">🎓 Deine Lernreise</h2>
         `;
         
-        coursesToShow.forEach(course => {
+        enrolledCourses.forEach(course => {
             courseHTML += studentPermissionInterface.renderCourseWithPermissions(course, currentUser.id);
         });
         
@@ -977,26 +982,27 @@ function enhanceStartLearningModule() {
             return;
         }
         
-        // UI zu Learning-Page wechseln
-        showPage('learning');
-        
-        // Kurzen Moment warten für UI-Update
-        setTimeout(() => {
-            try {
-                // ✅ FIX 1: Verwende 'learning-page' statt 'learning-content'
-                window.learningEngine.initialize('learning-page');
-
-                console.log('🚀 Starte Learning-Engine:', { courseId, levelId, moduleId });
-                window.learningEngine.startLesson(courseId, levelId, moduleId);
-
-                showNotification('🎓 Modul erfolgreich gestartet!', 'success');
-                console.log('✅ Learning-Engine erfolgreich gestartet');
-
-            } catch (error) {
-                console.error('❌ Fehler beim Starten der Learning-Engine:', error);
-                showNotification('Fehler beim Laden des Moduls', 'error');
+        try {
+            // ✅ FIXED: Verwende 'learning-page' für Fullscreen-Init
+            if (!learningEngine.initialized) {
+                const success = learningEngine.initialize('learning-page');
+                if (!success) {
+                    showNotification('Fehler beim Laden des Learning-Systems', 'error');
+                    return;
+                }
             }
-        }, 1000); // ✅ FIX 2: 1000ms statt 100ms
+            
+            // ✅ FIXED: Direkter Aufruf ohne setTimeout
+            console.log('🚀 Starte Learning-Engine:', { courseId, levelId, moduleId });
+            learningEngine.startLesson(courseId, levelId, moduleId);
+            
+            showNotification('🎓 Modul erfolgreich gestartet!', 'success');
+            console.log('✅ Learning-Engine erfolgreich gestartet');
+            
+        } catch (error) {
+            console.error('❌ Fehler beim Starten der Learning-Engine:', error);
+            showNotification('Fehler beim Laden des Moduls', 'error');
+        }
     };
 }
 
@@ -1020,15 +1026,31 @@ teacherStudentManager.extractStudentIdFromItem = function(item) {
 
 // System beim Laden aktivieren
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔐 Course-Permission-System wird aktiviert...');
+    
+    // Warte bis alle anderen Systeme geladen sind
     setTimeout(() => {
-        if (window.teacherStudentManager) {
-            enhanceTeacherStudentInterface();
+        try {
+            // Teacher-Interface erweitern (falls verfügbar)
+            if (window.teacherStudentManager) {
+                enhanceTeacherStudentInterface();
+                console.log('✅ Teacher-Interface erweitert');
+            }
+            
+            // Learning-Interface erweitern  
+            enhanceLearningInterface();
+            console.log('✅ Learning-Interface erweitert');
+            
+            // StartLearningModule erweitern
+            enhanceStartLearningModule();
+            console.log('✅ StartLearningModule erweitert');
+            
+            console.log('🔐 Course-Permission-System vollständig integriert');
+            
+        } catch (error) {
+            console.error('❌ Fehler bei Permission-System-Integration:', error);
         }
-        enhanceLearningInterface();
-        enhanceStartLearningModule();
-        
-        console.log('🔐 Course-Permission-System vollständig integriert');
-    }, 2000); // 2 Sekunden warten
+    }, 500); // ✅ FIXED: 500ms statt 2000ms
 });
 
 // Quick Fix für showNotification
@@ -1056,3 +1078,32 @@ window.studentPermissionInterface = studentPermissionInterface;
 
 console.log('🔐 Course-Permission-System geladen und bereit!');
 console.log('📋 Features: Teacher-Freischaltung, Student-Progress-Check, Auto-Progression, Duolingo-UI');
+
+// Saubere Exit-Integration
+function enhanceExitFunction() {
+    // Erweitere die exitLearningMode Funktion um Permission-System Cleanup
+    const originalExitLearningMode = window.learningEngine?.exitLearningMode;
+    
+    if (originalExitLearningMode && window.learningEngine) {
+        window.learningEngine.exitLearningMode = function() {
+            console.log('🚪 Exiting Learning Mode (mit Permission-Integration)');
+            
+            // Original-Funktion aufrufen
+            originalExitLearningMode.call(this);
+            
+            // Permission-spezifische Cleanup (falls nötig)
+            // Hier könnten zusätzliche Permission-bezogene Cleanups stehen
+            
+            console.log('✅ Learning Mode erfolgreich verlassen');
+        };
+    }
+}
+
+// Exit-Function Enhancement aktivieren (nach Learning-Engine Load)
+setTimeout(() => {
+    if (window.learningEngine) {
+        enhanceExitFunction();
+    }
+}, 1000);
+
+console.log('🔧 Permission-System Integration-Fixes geladen!');

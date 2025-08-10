@@ -323,41 +323,52 @@
         // SIMPLE NAVIGATION SYSTEM
         // ==========================================
         
+        function showPage(pageId) {
+            console.log('📍 Navigate to:', pageId);
 
-    function showPage(pageId) {
-        console.log('📍 Navigate to:', pageId);
-        
-        // Hide all pages
-        document.querySelectorAll('.page-section').forEach(page => {
-            page.classList.add('hidden');
-        });
-        
-        // Show target page
-        const targetPage = document.getElementById(pageId + '-page');
-        if (targetPage) {
-            targetPage.classList.remove('hidden');
+            // Learning-Engine cleanup - NUR wenn wir NICHT im Learning sind
+            if (window.learningEngine && window.learningEngine.initialized && pageId !== 'learning') {
+                console.log('🧹 Exiting Learning Mode...');
+                window.learningEngine.exitLearningMode();
+            }
+
+            // Hide all pages
+            document.querySelectorAll('.page-section').forEach(page => {
+                page.classList.add('hidden');
+            });
             
-            // Handle navbar
-            const navbar = document.getElementById('navbar');
-            const publicPages = ['welcome', 'login', 'register'];
-            
-            if (publicPages.includes(pageId)) {
-                navbar.classList.add('hidden');
-            } else {
-                navbar.classList.remove('hidden');
-                
-                // Check auth for protected pages
-                if (!window.currentUser) {
-                    showPage('login');
-                    showMessage('Bitte melde dich an', 'warning');
-                    return;
+            // ✅ FIX: Learning-Page explizit verstecken (da es manchmal nicht in .page-section erfasst wird)
+            const learningPage = document.getElementById('learning-page');
+            if (learningPage && pageId !== 'learning') {
+                learningPage.classList.add('hidden');
+            }
+
+            // Show target page
+            const targetPage = document.getElementById(pageId + '-page');
+            if (targetPage) {
+                targetPage.classList.remove('hidden');
+
+                // Handle navbar
+                const navbar = document.getElementById('navbar');
+                const publicPages = ['welcome', 'login', 'register'];
+
+                if (publicPages.includes(pageId)) {
+                    navbar.classList.add('hidden');
+                } else {
+                    navbar.classList.remove('hidden');
+
+                    // Check auth for protected pages
+                    if (!window.currentUser) {
+                        showPage('login');
+                        showMessage('Bitte melde dich an', 'warning');
+                        return;
+                    }
+
+                    // Load page content
+                    loadPageContent(pageId);
                 }
-                
-                // Load page content
-                loadPageContent(pageId);
             }
         }
-    }
 
         function loadPageContent(pageId) {
             switch(pageId) {
