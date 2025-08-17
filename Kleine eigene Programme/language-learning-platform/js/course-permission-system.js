@@ -914,26 +914,57 @@ function enhanceLearningInterface() {
         const userProgress = progressManager.getUserProgress(currentUser.id);
         const availableCourses = getAvailableCoursesForUser(currentUser.id, currentUser.userType);
         
-        // Auto-Progression für alle Kurse prüfen
-        availableCourses.forEach(course => {
+        // Teacher-First Design: Nur Kurse von aktiven Teachers
+        const activeTeachers = teacherStudentManager.relationships.filter(rel => 
+            rel.studentId === currentUser.id && rel.isActive
+        );
+        
+        if (activeTeachers.length === 0) {
+            learningContainer.innerHTML = `
+                <div class="text-center py-12">
+                    <div class="text-6xl mb-4">👨‍🏫</div>
+                    <h3 class="text-2xl font-semibold text-gray-900 mb-4">Noch kein Lehrer gefunden</h3>
+                    <p class="text-gray-600 mb-6">Du musst zuerst einem Lehrer folgen, um Kurse zu sehen.</p>
+                    <button onclick="showPage('teachers')" class="bg-primary hover:bg-blue-600 text-white px-6 py-3 rounded-lg text-lg">
+                        🔍 Lehrer finden
+                    </button>
+                    <div class="mt-6 text-sm text-gray-500">
+                        <p>Demo Teacher-Code: <span class="font-mono font-bold">TCHDMO</span></p>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+        
+        // Sammle alle Kurse von aktiven Teachers
+        let availableTeacherCourses = [];
+        activeTeachers.forEach(rel => {
+            const courses = courseManager.getCoursesByTeacher ? 
+                courseManager.getCoursesByTeacher(rel.teacherId) : 
+                courseManager.courses.filter(course => course.teacherId === rel.teacherId);
+            availableTeacherCourses.push(...courses);
+        });
+        
+        // Entferne Duplikate
+        availableTeacherCourses = availableTeacherCourses.filter((course, index, self) => 
+            index === self.findIndex(c => c.id === course.id)
+        );
+        
+        // Auto-Progression für Teacher-Kurse prüfen
+        availableTeacherCourses.forEach(course => {
             if (userProgress.coursesEnrolled.includes(course.id)) {
                 coursePermissionManager.checkAutoProgression(currentUser.id, course.id);
             }
         });
         
-        // Nur eingeschriebene Kurse anzeigen
-        const enrolledCourses = availableCourses.filter(course => 
-            userProgress.coursesEnrolled.includes(course.id)
-        );
+        // Zeige verfügbare Teacher-Kurse (Permission-System entscheidet Zugang)
+        const displayCourses = availableTeacherCourses;
         
-        if (enrolledCourses.length === 0) {
+        if (displayCourses.length === 0) {
             learningContainer.innerHTML = `
                 <div class="text-center py-8">
-                    <h3 class="text-xl font-semibold text-gray-900 mb-4">Noch keine Kurse</h3>
-                    <p class="text-gray-600 mb-6">Du bist noch in keinem Kurs eingeschrieben.</p>
-                    <button onclick="showPage('teachers')" class="bg-primary hover:bg-blue-600 text-white px-6 py-3 rounded-lg">
-                        Lehrer finden
-                    </button>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4">Noch keine Kurse freigeschaltet</h3>
+                    <p class="text-gray-600 mb-6">Dein Lehrer muss dir noch Kurse freischalten.</p>
                 </div>
             `;
             return;
@@ -944,8 +975,8 @@ function enhanceLearningInterface() {
             <div class="space-y-8">
                 <h2 class="text-2xl font-bold text-gray-900">🎓 Deine Lernreise</h2>
         `;
-        
-        enrolledCourses.forEach(course => {
+            
+        displayCourses.forEach(course => {
             courseHTML += studentPermissionInterface.renderCourseWithPermissions(course, currentUser.id);
         });
         

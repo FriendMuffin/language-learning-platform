@@ -415,16 +415,29 @@ class TeacherStudentManager {
             return;
         }
         
-        // Prüfen ob bereits verbunden
+        // Prüfen auf AKTIVE Relationship + Reaktivierung
         const existingRelation = this.relationships.find(rel => 
             rel.studentId === window.currentUser.id && rel.teacherId === teacher.id
         );
-        
-        if (existingRelation) {
+
+        if (existingRelation && existingRelation.isActive) {
             this.showNotification('Du folgst diesem Lehrer bereits', 'warning');
             return;
+        } else if (existingRelation && !existingRelation.isActive) {
+            // REAKTIVIERUNG: Inaktive Relationship wieder aktivieren
+            existingRelation.isActive = true;
+            existingRelation.connectedAt = new Date().toISOString();
+            this.saveRelationships();
+
+            this.showNotification(`✅ Du folgst wieder ${teacher.name} ${teacher.surname}!`, 'success');
+            codeInput.value = '';
+
+            setTimeout(() => {
+                this.loadEnhancedTeacherSearch();
+            }, 1000);
+            return;
         }
-        
+
         // Neue Beziehung erstellen
         const relationshipId = this.createRelationship(window.currentUser.id, teacher.id, teacherCode);
         
@@ -669,27 +682,73 @@ class TeacherStudentManager {
         }
     }
     
-    /**
-     * Entfolgt einem Teacher
-     */
+    // ✅ FIXED CODE:
     unfollowTeacher(teacherId) {
         if (!window.currentUser) return;
-        
+
         const relationship = this.relationships.find(rel => 
             rel.studentId === window.currentUser.id && rel.teacherId === teacherId
         );
-        
+
         if (!relationship) return;
-        
+
         const teacher = userDatabase.getAllUsers().find(u => u.id === teacherId);
         const teacherName = teacher ? `${teacher.name} ${teacher.surname}` : 'diesem Lehrer';
-        
-        if (confirm(`Möchtest du wirklich ${teacherName} entfolgen?`)) {
+
+        if (confirm(`Möchtest du wirklich ${teacherName} entfolgen?\n\nDu verlierst auch Zugang zu den Kursen von ${teacherName}.`)) {
+            // 1. Deaktiviere Relationship
             relationship.isActive = false;
             this.saveRelationships();
-            
+
+            // 2. ✅ NEU: Entferne Teacher-Kurse aus Student-Enrollments
+            this.removeTeacherCoursesFromStudent(window.currentUser.id, teacherId);
+
             this.showNotification(`Du folgst ${teacherName} nicht mehr`, 'info');
             this.loadEnhancedTeacherSearch();
+
+            // 3. ✅ NEU: Learning-Page refreshen
+            if (window.loadLearning) {
+                setTimeout(() => {
+                    loadLearning();
+                }, 100);
+            }
+        }
+    }
+
+    /**
+     * ✅ NEUE HELPER-FUNKTION: Entfernt Teacher-Kurse aus Student-Progress
+     */
+    removeTeacherCoursesFromStudent(studentId, teacherId) {
+        try {
+            // Hole alle Kurse des Teachers
+            const teacherCourses = courseManager.getCoursesByTeacher ? 
+                courseManager.getCoursesByTeacher(teacherId) : 
+                courseManager.courses.filter(course => course.teacherId === teacherId);
+
+            const teacherCourseIds = teacherCourses.map(course => course.id);
+
+            // Hole Student-Progress
+            const userProgress = progressManager.getUserProgress(studentId);
+
+            // Entferne Teacher-Kurse aus Enrollments
+            userProgress.coursesEnrolled = userProgress.coursesEnrolled.filter(courseId => 
+                !teacherCourseIds.includes(courseId)
+            );
+
+            // Entferne auch Course-Progress (optional - könnte erhalten bleiben)
+            teacherCourseIds.forEach(courseId => {
+                if (userProgress.courseProgress && userProgress.courseProgress[courseId]) {
+                    delete userProgress.courseProgress[courseId];
+                }
+            });
+
+            // Speichere Progress
+            progressManager.saveProgress();
+
+            console.log(`✅ Removed ${teacherCourseIds.length} teacher courses from student ${studentId}`);
+
+        } catch (error) {
+            console.error('❌ Error removing teacher courses:', error);
         }
     }
     

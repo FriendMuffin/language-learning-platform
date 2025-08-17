@@ -1102,19 +1102,35 @@ const relationshipManager = new RelationshipManager();
  * @returns {Array} Array verfügbarer Kurse
  */
 function getAvailableCoursesForUser(userId, userType) {
-    if (userType === 'teacher') {
+    if (userType === 'teacher' || userType === 'admin') {
         return courseManager.getCoursesByTeacher(userId);
     } else {
-        // Für Schüler: alle öffentlichen Kurse + eingeschriebene private Kurse
-        const publicCourses = courseManager.getPublicCourses();
-        const userProgress = progressManager.getUserProgress(userId);
+        // Teacher-First Design: Nur Kurse von aktiven Teachers
+        if (!window.teacherStudentManager) {
+            console.warn('TeacherStudentManager not available - returning empty courses');
+            return [];
+        }
         
-        // Private Kurse in denen der Schüler eingeschrieben ist
-        const enrolledPrivateCourses = courseManager.courses.filter(course => 
-            !course.isPublic && userProgress.coursesEnrolled.includes(course.id)
+        const activeTeachers = teacherStudentManager.relationships.filter(rel => 
+            rel.studentId === userId && rel.isActive
         );
         
-        return [...publicCourses, ...enrolledPrivateCourses];
+        if (activeTeachers.length === 0) {
+            return []; // Keine Kurse ohne aktive Teacher-Relationship
+        }
+        
+        let teacherCourses = [];
+        activeTeachers.forEach(rel => {
+            const courses = courseManager.getCoursesByTeacher ? 
+                courseManager.getCoursesByTeacher(rel.teacherId) : 
+                courseManager.courses.filter(course => course.teacherId === rel.teacherId);
+            teacherCourses.push(...courses);
+        });
+        
+        // Entferne Duplikate
+        return teacherCourses.filter((course, index, self) => 
+            index === self.findIndex(c => c.id === course.id)
+        );
     }
 }
 
