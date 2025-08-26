@@ -682,7 +682,10 @@ class TeacherStudentManager {
         }
     }
     
-    // ✅ FIXED CODE:
+    /**
+     * Reparierte unfollowTeacher() Methode für teacher-student-system.js
+     * Ersetzt die bestehende unfollowTeacher() Methode
+     */
     unfollowTeacher(teacherId) {
         if (!window.currentUser) return;
 
@@ -690,65 +693,136 @@ class TeacherStudentManager {
             rel.studentId === window.currentUser.id && rel.teacherId === teacherId
         );
 
-        if (!relationship) return;
+        if (!relationship) {
+            console.log('Keine Relationship zum Entfolgen gefunden');
+            return;
+        }
 
         const teacher = userDatabase.getAllUsers().find(u => u.id === teacherId);
         const teacherName = teacher ? `${teacher.name} ${teacher.surname}` : 'diesem Lehrer';
 
+        console.log('Entfolgen-Bestätigung für:', { teacherId, teacherName, relationId: relationship.id });
+
         if (confirm(`Möchtest du wirklich ${teacherName} entfolgen?\n\nDu verlierst auch Zugang zu den Kursen von ${teacherName}.`)) {
+            console.log('Verarbeite Entfolgen...');
+
             // 1. Deaktiviere Relationship
             relationship.isActive = false;
+            relationship.unfollowedAt = new Date().toISOString();
             this.saveRelationships();
 
-            // 2. ✅ NEU: Entferne Teacher-Kurse aus Student-Enrollments
+            // Verify save
+            const savedRelation = this.relationships.find(rel => rel.id === relationship.id);
+            console.log('Relationship nach Entfolgen:', { 
+                isActive: savedRelation?.isActive, 
+                unfollowedAt: savedRelation?.unfollowedAt 
+            });
+
+            // 2. Entferne Teacher-Kurse aus Student-Enrollments
             this.removeTeacherCoursesFromStudent(window.currentUser.id, teacherId);
 
+            // 3. FIXED: Korrekte Permission-Bereinigung
+            this.clearAllTeacherPermissions(window.currentUser.id, teacherId);
+
             this.showNotification(`Du folgst ${teacherName} nicht mehr`, 'info');
+
+            // 4. Refresh UI
             this.loadEnhancedTeacherSearch();
 
-            // 3. ✅ NEU: Learning-Page refreshen
-            if (window.loadLearning) {
-                setTimeout(() => {
-                    loadLearning();
-                }, 100);
+            // 5. Refresh learning page
+            if (window.loadAdvancedLearningInterface) {
+                setTimeout(() => window.loadAdvancedLearningInterface(), 100);
             }
         }
     }
 
     /**
-     * ✅ NEUE HELPER-FUNKTION: Entfernt Teacher-Kurse aus Student-Progress
+     * NEUE METHODE: Vollständige Permission-Bereinigung
      */
-    removeTeacherCoursesFromStudent(studentId, teacherId) {
+    clearAllTeacherPermissions(studentId, teacherId) {
         try {
+            console.log('Bereinige Permissions für Teacher:', teacherId);
+
             // Hole alle Kurse des Teachers
             const teacherCourses = courseManager.getCoursesByTeacher ? 
                 courseManager.getCoursesByTeacher(teacherId) : 
                 courseManager.courses.filter(course => course.teacherId === teacherId);
 
-            const teacherCourseIds = teacherCourses.map(course => course.id);
+            console.log('Teacher-Kurse gefunden:', teacherCourses.length);
 
+            // Für jeden Kurs: Permissions und Settings löschen
+            teacherCourses.forEach(course => {
+                console.log(`Bereinige Permissions für Kurs: ${course.title}`);
+
+                // Lösche Permissions
+                const permissionKey = coursePermissionManager.getPermissionKey(studentId, course.id);
+                if (coursePermissionManager.permissions[permissionKey]) {
+                    console.log(`Lösche Permission: ${permissionKey}`);
+                    delete coursePermissionManager.permissions[permissionKey];
+                }
+
+                // Lösche Settings  
+                const settingKey = coursePermissionManager.getSettingKey(studentId, course.id);
+                if (coursePermissionManager.settings[settingKey]) {
+                    console.log(`Lösche Setting: ${settingKey}`);
+                    delete coursePermissionManager.settings[settingKey];
+                }
+            });
+
+            // Speichere Änderungen
+            coursePermissionManager.savePermissions();
+            coursePermissionManager.saveSettings();
+
+            console.log('Permission-Bereinigung abgeschlossen für', teacherCourses.length, 'Kurse');
+
+        } catch (error) {
+            console.error('Fehler bei Permission-Bereinigung:', error);
+        }
+    }
+
+    /**
+     * ERWEITERTE removeTeacherCoursesFromStudent mit Logging
+     */
+    removeTeacherCoursesFromStudent(studentId, teacherId) {
+        try {
+            console.log('Entferne Teacher-Kurse für Student:', studentId, 'Teacher:', teacherId);
+            
+            // Hole alle Kurse des Teachers
+            const teacherCourses = courseManager.getCoursesByTeacher ? 
+                courseManager.getCoursesByTeacher(teacherId) : 
+                courseManager.courses.filter(course => course.teacherId === teacherId);
+        
+            const teacherCourseIds = teacherCourses.map(course => course.id);
+            console.log('Zu entfernende Kurs-IDs:', teacherCourseIds);
+        
             // Hole Student-Progress
             const userProgress = progressManager.getUserProgress(studentId);
-
+            
+            // Vor der Änderung
+            console.log('Enrollments vor Entfernung:', userProgress.coursesEnrolled);
+        
             // Entferne Teacher-Kurse aus Enrollments
             userProgress.coursesEnrolled = userProgress.coursesEnrolled.filter(courseId => 
                 !teacherCourseIds.includes(courseId)
             );
-
-            // Entferne auch Course-Progress (optional - könnte erhalten bleiben)
+        
+            // Entferne auch Course-Progress
             teacherCourseIds.forEach(courseId => {
                 if (userProgress.courseProgress && userProgress.courseProgress[courseId]) {
+                    console.log(`Lösche Course-Progress für: ${courseId}`);
                     delete userProgress.courseProgress[courseId];
                 }
             });
-
+        
             // Speichere Progress
             progressManager.saveProgress();
-
-            console.log(`✅ Removed ${teacherCourseIds.length} teacher courses from student ${studentId}`);
-
+        
+            // Nach der Änderung
+            console.log('Enrollments nach Entfernung:', userProgress.coursesEnrolled);
+            console.log(`Entfernte ${teacherCourseIds.length} Teacher-Kurse von Student ${studentId}`);
+        
         } catch (error) {
-            console.error('❌ Error removing teacher courses:', error);
+            console.error('Fehler beim Entfernen der Teacher-Kurse:', error);
         }
     }
     
