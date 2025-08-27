@@ -65,7 +65,7 @@ class CoursePermissionManager {
     grantLevelAccess(teacherId, studentId, courseId, levelId) {
         try {
             const permissionKey = this.getPermissionKey(studentId, courseId);
-            
+
             if (!this.permissions[permissionKey]) {
                 this.permissions[permissionKey] = {
                     studentId,
@@ -77,36 +77,102 @@ class CoursePermissionManager {
                     createdAt: new Date().toISOString()
                 };
             }
-            
+
             const permission = this.permissions[permissionKey];
-            
+
             // Level hinzufügen falls noch nicht vorhanden
             if (!permission.grantedLevels.includes(levelId)) {
                 permission.grantedLevels.push(levelId);
                 permission.lastUpdated = new Date().toISOString();
-                
-                // Alle Module in diesem Level auch freischalten
+
+                // NEUE LOGIC: Nur erstes Modul automatisch freischalten
                 const course = courseManager.getCourse(courseId);
                 if (course) {
                     const level = course.levels.find(l => l.id === levelId);
-                    if (level) {
-                        level.modules.forEach(module => {
-                            if (!permission.grantedModules.includes(module.id)) {
-                                permission.grantedModules.push(module.id);
-                            }
-                        });
+                    if (level && level.modules.length > 0) {
+                        // Nur das ERSTE Modul des Levels freischalten
+                        const firstModule = level.modules[0];
+                        if (!permission.grantedModules.includes(firstModule.id)) {
+                            permission.grantedModules.push(firstModule.id);
+                            console.log(`📌 Erstes Modul freigeschaltet: ${firstModule.title}`);
+                        }
                     }
                 }
-                
+
                 this.savePermissions();
-                console.log(`✅ Level ${levelId} für Student ${studentId} freigeschaltet`);
+                console.log(`✅ Level ${levelId} für Student ${studentId} freigeschaltet (nur erstes Modul)`);
                 return true;
             }
-            
+
             return true; // Bereits freigeschaltet
-            
+
         } catch (error) {
             console.error('❌ Fehler beim Freischalten des Levels:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Intelligente Auto-Progression
+     * Schaltet nächstes Modul frei basierend auf Completion
+     */
+    checkAndUnlockNextModule(studentId, courseId, completedModuleId) {
+        try {
+            const autoProgression = this.getAutoProgression(studentId, courseId);
+            if (!autoProgression) {
+                console.log('🔒 Auto-Progression deaktiviert - keine automatische Freischaltung');
+                return false;
+            }
+            
+            const course = courseManager.getCourse(courseId);
+            if (!course) return false;
+            
+            // Finde das abgeschlossene Modul
+            let completedModule = null;
+            let parentLevel = null;
+            let moduleIndex = -1;
+            
+            for (const level of course.levels) {
+                const index = level.modules.findIndex(m => m.id === completedModuleId);
+                if (index !== -1) {
+                    completedModule = level.modules[index];
+                    parentLevel = level;
+                    moduleIndex = index;
+                    break;
+                }
+            }
+            
+            if (!completedModule || !parentLevel) return false;
+            
+            // Prüfe ob Level freigeschaltet ist
+            const hasLevelPermission = this.hasPermission(studentId, courseId, parentLevel.id);
+            if (!hasLevelPermission) {
+                console.log('🔒 Level nicht freigeschaltet - keine Auto-Progression möglich');
+                return false;
+            }
+            
+            // Gibt es ein nächstes Modul im gleichen Level?
+            if (moduleIndex + 1 < parentLevel.modules.length) {
+                const nextModule = parentLevel.modules[moduleIndex + 1];
+                
+                // Ist das nächste Modul bereits freigeschaltet?
+                const hasNextModulePermission = this.hasPermission(studentId, courseId, null, nextModule.id);
+                if (!hasNextModulePermission) {
+                    // Schalte nächstes Modul frei
+                    const success = this.grantModuleAccess('system-auto', studentId, courseId, nextModule.id);
+                    if (success) {
+                        console.log(`🤖 Auto-Progression: ${nextModule.title} freigeschaltet`);
+                        return true;
+                    }
+                }
+            } else {
+                console.log('ℹ️ Letztes Modul im Level abgeschlossen - kein weiteres Modul verfügbar');
+            }
+            
+            return false;
+            
+        } catch (error) {
+            console.error('❌ Fehler bei Auto-Progression:', error);
             return false;
         }
     }
@@ -191,17 +257,19 @@ class CoursePermissionManager {
      * @returns {Object} Zugang-Informationen
      */
     checkAccess(studentId, courseId, levelId, moduleId) {
-        // 1. Teacher-Permission prüfen
-        const hasTeacherPermission = this.hasPermission(studentId, courseId, levelId, moduleId);
-
-        // 2. Student-Progress prüfen
+        // 1. Teacher-Permission prüfen (Modul-spezifisch)
+        const hasTeacherPermission = this.hasPermission(studentId, courseId, null, moduleId);
+    
+        // 2. Level-Permission prüfen (falls Modul nicht explizit freigeschaltet)
+        const hasLevelPermission = this.hasPermission(studentId, courseId, levelId);
+    
+        // 3. Student-Progress prüfen
         const userProgress = progressManager.getUserProgress(studentId);
         const courseProgress = userProgress.courseProgress[courseId];
-
+    
         let hasProgress = false;
         let progressReason = '';
-
-        // WICHTIG: Startmodul-Check AUSSERHALB von courseProgress (für neue Kurse)
+    
         const course = courseManager.getCourse(courseId);
         if (course) {
             const level = course.levels.find(l => l.id === levelId);
@@ -210,45 +278,43 @@ class CoursePermissionManager {
                 if (module) {
                     const moduleIndex = level.modules.findIndex(m => m.id === moduleId);
                     const levelIndex = course.levels.findIndex(l => l.id === levelId);
-
-                    // Erstes Modul im ersten Level: immer verfügbar (auch ohne courseProgress)
+                
+                    // Erstes Modul im ersten Level: immer verfügbar (Start-Modul)
                     if (levelIndex === 0 && moduleIndex === 0) {
                         hasProgress = true;
-                        progressReason = 'Startmodul';
+                        progressReason = 'Start-Modul';
                     }
-                    // Weitere Progress-Checks nur wenn courseProgress existiert
+                    // Weitere Module: Prüfe Completion der vorherigen Module
                     else if (courseProgress) {
-                        const completedModules = courseProgress.completedModules || [];
                         const completedTasks = courseProgress.completedTasks || [];
-
-                        // Prüfe ob vorheriges Modul abgeschlossen
+                        
                         if (moduleIndex > 0) {
+                            // Vorheriges Modul im gleichen Level
                             const previousModule = level.modules[moduleIndex - 1];
                             const previousModuleTasks = previousModule.tasks.map(t => t.id);
                             const completedPreviousTasks = previousModuleTasks.filter(taskId => 
                                 completedTasks.includes(taskId)
                             );
-
-                            if (completedPreviousTasks.length >= previousModuleTasks.length * 0.7) { // 70% Completion
+                        
+                            if (completedPreviousTasks.length >= previousModuleTasks.length * 0.7) {
                                 hasProgress = true;
                                 progressReason = 'Vorheriges Modul zu 70% abgeschlossen';
                             } else {
                                 progressReason = `Vorheriges Modul nur zu ${Math.round((completedPreviousTasks.length / previousModuleTasks.length) * 100)}% abgeschlossen`;
                             }
-                        }
-                        // Prüfe ob vorheriges Level abgeschlossen
-                        else if (levelIndex > 0) {
+                        } else if (levelIndex > 0) {
+                            // Erstes Modul eines neuen Levels: Prüfe vorheriges Level
                             const previousLevel = course.levels[levelIndex - 1];
                             const previousLevelTasks = [];
                             previousLevel.modules.forEach(mod => {
                                 mod.tasks.forEach(task => previousLevelTasks.push(task.id));
                             });
-
+                        
                             const completedPreviousLevelTasks = previousLevelTasks.filter(taskId => 
                                 completedTasks.includes(taskId)
                             );
-
-                            if (completedPreviousLevelTasks.length >= previousLevelTasks.length * 0.8) { // 80% Completion für Level
+                        
+                            if (completedPreviousLevelTasks.length >= previousLevelTasks.length * 0.8) {
                                 hasProgress = true;
                                 progressReason = 'Vorheriges Level zu 80% abgeschlossen';
                             } else {
@@ -256,25 +322,27 @@ class CoursePermissionManager {
                             }
                         }
                     } else {
-                        // Kein courseProgress für weitere Module → Progress erforderlich
                         progressReason = 'Kein Fortschritt vorhanden - starte mit dem ersten Modul';
                     }
                 }
             }
         }
-
-        // 3. Auto-Progression prüfen
-        const autoProgression = this.getAutoProgression(studentId, courseId);
-
+    
+        // 4. Finale Access-Entscheidung
+        // Access = (Module-Permission ODER Level-Permission) UND Progress
+        const hasPermissionAccess = hasTeacherPermission || (hasLevelPermission && hasProgress);
+        const finalAccess = hasPermissionAccess && hasProgress;
+    
         return {
-            hasAccess: hasTeacherPermission && hasProgress,
-            hasTeacherPermission,
-            hasProgress,
-            progressReason,
-            autoProgression,
-            unlockReason: hasTeacherPermission && hasProgress ? 
+            hasAccess: finalAccess,
+            hasTeacherPermission: hasTeacherPermission,
+            hasLevelPermission: hasLevelPermission,
+            hasProgress: hasProgress,
+            progressReason: progressReason,
+            autoProgression: this.getAutoProgression(studentId, courseId),
+            unlockReason: finalAccess ? 
                 'Zugang gewährt von Lehrer und Fortschritt erreicht' :
-                !hasTeacherPermission ? 'Noch nicht vom Lehrer freigeschaltet' :
+                !hasPermissionAccess ? 'Noch nicht vom Lehrer freigeschaltet' :
                 !hasProgress ? `Fortschritt erforderlich: ${progressReason}` :
                 'Unbekannter Grund'
         };
