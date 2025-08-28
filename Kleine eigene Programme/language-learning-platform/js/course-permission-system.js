@@ -259,17 +259,17 @@ class CoursePermissionManager {
     checkAccess(studentId, courseId, levelId, moduleId) {
         // 1. Teacher-Permission prüfen (Modul-spezifisch)
         const hasTeacherPermission = this.hasPermission(studentId, courseId, null, moduleId);
-    
+
         // 2. Level-Permission prüfen (falls Modul nicht explizit freigeschaltet)
         const hasLevelPermission = this.hasPermission(studentId, courseId, levelId);
-    
+
         // 3. Student-Progress prüfen
         const userProgress = progressManager.getUserProgress(studentId);
         const courseProgress = userProgress.courseProgress[courseId];
-    
+
         let hasProgress = false;
         let progressReason = '';
-    
+
         const course = courseManager.getCourse(courseId);
         if (course) {
             const level = course.levels.find(l => l.id === levelId);
@@ -278,7 +278,7 @@ class CoursePermissionManager {
                 if (module) {
                     const moduleIndex = level.modules.findIndex(m => m.id === moduleId);
                     const levelIndex = course.levels.findIndex(l => l.id === levelId);
-                
+
                     // Erstes Modul im ersten Level: immer verfügbar (Start-Modul)
                     if (levelIndex === 0 && moduleIndex === 0) {
                         hasProgress = true;
@@ -287,7 +287,7 @@ class CoursePermissionManager {
                     // Weitere Module: Prüfe Completion der vorherigen Module
                     else if (courseProgress) {
                         const completedTasks = courseProgress.completedTasks || [];
-                        
+
                         if (moduleIndex > 0) {
                             // Vorheriges Modul im gleichen Level
                             const previousModule = level.modules[moduleIndex - 1];
@@ -295,7 +295,7 @@ class CoursePermissionManager {
                             const completedPreviousTasks = previousModuleTasks.filter(taskId => 
                                 completedTasks.includes(taskId)
                             );
-                        
+
                             if (completedPreviousTasks.length >= previousModuleTasks.length * 0.7) {
                                 hasProgress = true;
                                 progressReason = 'Vorheriges Modul zu 70% abgeschlossen';
@@ -309,11 +309,11 @@ class CoursePermissionManager {
                             previousLevel.modules.forEach(mod => {
                                 mod.tasks.forEach(task => previousLevelTasks.push(task.id));
                             });
-                        
+
                             const completedPreviousLevelTasks = previousLevelTasks.filter(taskId => 
                                 completedTasks.includes(taskId)
                             );
-                        
+
                             if (completedPreviousLevelTasks.length >= previousLevelTasks.length * 0.8) {
                                 hasProgress = true;
                                 progressReason = 'Vorheriges Level zu 80% abgeschlossen';
@@ -327,12 +327,12 @@ class CoursePermissionManager {
                 }
             }
         }
-    
+
         // 4. Finale Access-Entscheidung
         // Access = (Module-Permission ODER Level-Permission) UND Progress
         const hasPermissionAccess = hasTeacherPermission || (hasLevelPermission && hasProgress);
         const finalAccess = hasPermissionAccess && hasProgress;
-    
+
         return {
             hasAccess: finalAccess,
             hasTeacherPermission: hasTeacherPermission,
@@ -971,7 +971,7 @@ function enhanceLearningInterface() {
     const originalLoadAdvancedLearningInterface = window.loadAdvancedLearningInterface;
     
     window.loadAdvancedLearningInterface = function() {
-        console.log('📚 Lade Learning-Interface mit Permission-Integration...');
+        console.log('Lade SICHERE Learning-Interface...');
         
         const learningContainer = document.getElementById('learning-content');
         if (!learningContainer) return;
@@ -979,10 +979,16 @@ function enhanceLearningInterface() {
         const currentUser = getCurrentUser();
         if (!currentUser) return;
         
-        const userProgress = progressManager.getUserProgress(currentUser.id);
-        const availableCourses = getAvailableCoursesForUser(currentUser.id, currentUser.userType);
+        if (currentUser.userType !== 'student') {
+            learningContainer.innerHTML = `
+                <div class="text-center py-8">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4">Nur für Schüler</h3>
+                    <p class="text-gray-600">Diese Seite ist nur für Schüler verfügbar.</p>
+                </div>
+            `;
+            return;
+        }
         
-        // Teacher-First Design: Nur Kurse von aktiven Teachers
         const activeTeachers = teacherStudentManager.relationships.filter(rel => 
             rel.studentId === currentUser.id && rel.isActive
         );
@@ -994,7 +1000,7 @@ function enhanceLearningInterface() {
                     <h3 class="text-2xl font-semibold text-gray-900 mb-4">Noch kein Lehrer gefunden</h3>
                     <p class="text-gray-600 mb-6">Du musst zuerst einem Lehrer folgen, um Kurse zu sehen.</p>
                     <button onclick="showPage('teachers')" class="bg-primary hover:bg-blue-600 text-white px-6 py-3 rounded-lg text-lg">
-                        🔍 Lehrer finden
+                        Lehrer finden
                     </button>
                     <div class="mt-6 text-sm text-gray-500">
                         <p>Demo Teacher-Code: <span class="font-mono font-bold">TCHDMO</span></p>
@@ -1004,7 +1010,6 @@ function enhanceLearningInterface() {
             return;
         }
         
-        // Sammle alle Kurse von aktiven Teachers
         let availableTeacherCourses = [];
         activeTeachers.forEach(rel => {
             const courses = courseManager.getCoursesByTeacher ? 
@@ -1013,22 +1018,11 @@ function enhanceLearningInterface() {
             availableTeacherCourses.push(...courses);
         });
         
-        // Entferne Duplikate
         availableTeacherCourses = availableTeacherCourses.filter((course, index, self) => 
             index === self.findIndex(c => c.id === course.id)
         );
         
-        // Auto-Progression für Teacher-Kurse prüfen
-        availableTeacherCourses.forEach(course => {
-            if (userProgress.coursesEnrolled.includes(course.id)) {
-                coursePermissionManager.checkAutoProgression(currentUser.id, course.id);
-            }
-        });
-        
-        // Zeige verfügbare Teacher-Kurse (Permission-System entscheidet Zugang)
-        const displayCourses = availableTeacherCourses;
-        
-        if (displayCourses.length === 0) {
+        if (availableTeacherCourses.length === 0) {
             learningContainer.innerHTML = `
                 <div class="text-center py-8">
                     <h3 class="text-xl font-semibold text-gray-900 mb-4">Noch keine Kurse freigeschaltet</h3>
@@ -1038,14 +1032,23 @@ function enhanceLearningInterface() {
             return;
         }
         
-        // Kurs-Interface mit Permission-System
         let courseHTML = `
             <div class="space-y-8">
-                <h2 class="text-2xl font-bold text-gray-900">🎓 Deine Lernreise</h2>
+                <h2 class="text-2xl font-bold text-gray-900">Deine Lernreise</h2>
         `;
             
-        displayCourses.forEach(course => {
-            courseHTML += studentPermissionInterface.renderCourseWithPermissions(course, currentUser.id);
+        availableTeacherCourses.forEach(course => {
+            if (window.studentPermissionInterface) {
+                courseHTML += studentPermissionInterface.renderCourseWithPermissions(course, currentUser.id);
+            } else {
+                courseHTML += `
+                    <div class="border rounded-lg p-6 bg-gray-100">
+                        <h3 class="text-xl font-semibold">${course.title}</h3>
+                        <p class="text-gray-600">${course.description}</p>
+                        <p class="text-red-600 mt-2">Permission-System nicht verfügbar</p>
+                    </div>
+                `;
+            }
         });
         
         courseHTML += '</div>';
@@ -1058,31 +1061,56 @@ function enhanceLearningInterface() {
  */
 function enhanceStartLearningModule() {
     window.startLearningModule = function(courseId, levelId, moduleId) {
-        console.log('🎯 Starte Lern-Modul mit Permission-Check:', { courseId, levelId, moduleId });
-        
+        console.log('Sichere Learning-Modul-Start:', { courseId, levelId, moduleId });
+
         const currentUser = getCurrentUser();
         if (!currentUser) {
             showNotification('Du musst angemeldet sein', 'error');
             return;
         }
-        
-        // Permission-Check
-        const access = coursePermissionManager.checkAccess(currentUser.id, courseId, levelId, moduleId);
-        
-        if (!access.hasAccess) {
-            showNotification(`🔒 Zugang verweigert: ${access.unlockReason}`, 'warning');
+
+        if (currentUser.userType !== 'student') {
+            showNotification('Nur Schüler können Learning-Module starten', 'error');
             return;
         }
-        
-        // Learning-Engine verfügbar?
-        if (!window.learningEngine) {
-            console.error('❌ Learning-Engine nicht gefunden!');
-            showNotification('Learning-Engine nicht verfügbar', 'error');
+
+        const activeTeachers = teacherStudentManager.relationships.filter(rel => 
+            rel.studentId === currentUser.id && rel.isActive
+        );
+
+        if (activeTeachers.length === 0) {
+            showNotification('Du musst einem Lehrer folgen um Kurse zu starten', 'warning');
+            showPage('teachers');
             return;
         }
-        
+
+        const course = courseManager.getCourse(courseId);
+        if (!course) {
+            showNotification('Kurs nicht gefunden', 'error');
+            return;
+        }
+
+        const hasTeacherForCourse = activeTeachers.some(rel => rel.teacherId === course.teacherId);
+        if (!hasTeacherForCourse) {
+            showNotification('Du folgst nicht dem Lehrer für diesen Kurs', 'warning');
+            return;
+        }
+
+        if (window.coursePermissionManager) {
+            const access = coursePermissionManager.checkAccess(currentUser.id, courseId, levelId, moduleId);
+
+            if (!access.hasAccess) {
+                showNotification(`Zugang verweigert: ${access.unlockReason}`, 'warning');
+                return;
+            }
+        }
+
         try {
-            // ✅ FIXED: Verwende 'learning-page' für Fullscreen-Init
+            if (!window.learningEngine) {
+                showNotification('Learning-System nicht verfügbar', 'error');
+                return;
+            }
+
             if (!learningEngine.initialized) {
                 const success = learningEngine.initialize('learning-page');
                 if (!success) {
@@ -1090,16 +1118,12 @@ function enhanceStartLearningModule() {
                     return;
                 }
             }
-            
-            // ✅ FIXED: Direkter Aufruf ohne setTimeout
-            console.log('🚀 Starte Learning-Engine:', { courseId, levelId, moduleId });
+
             learningEngine.startLesson(courseId, levelId, moduleId);
-            
-            showNotification('🎓 Modul erfolgreich gestartet!', 'success');
-            console.log('✅ Learning-Engine erfolgreich gestartet');
-            
+            showNotification('Modul erfolgreich gestartet!', 'success');
+
         } catch (error) {
-            console.error('❌ Fehler beim Starten der Learning-Engine:', error);
+            console.error('Fehler beim Learning-Engine-Start:', error);
             showNotification('Fehler beim Laden des Moduls', 'error');
         }
     };

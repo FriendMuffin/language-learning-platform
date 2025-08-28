@@ -215,21 +215,21 @@ class AdminSystem {
      */
     showCourseBuilder() {
         const container = document.getElementById('admin-content') || document.querySelector('#admin-page .bg-white');
-        
+
         container.innerHTML = `
             <div class="space-y-6">
                 <!-- Header -->
                 <div class="flex items-center justify-between">
                     <div>
                         <h2 class="text-2xl font-bold text-gray-900">➕ Neuen Kurs erstellen</h2>
-                        <p class="text-gray-600">Course Builder - Schritt für Schritt</p>
+                        <p class="text-gray-600">Teacher-Centric Course Builder</p>
                     </div>
                     <button onclick="adminSystem.loadAdminDashboard()" 
                             class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">
                         ← Zurück
                     </button>
                 </div>
-                
+
                 <!-- Course Creation Form -->
                 <div class="bg-white rounded-lg shadow p-6">
                     <form id="course-creation-form" onsubmit="adminSystem.createCourse(event)" class="space-y-6">
@@ -241,7 +241,7 @@ class AdminSystem {
                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                        placeholder="z.B. Deutsch A1 - Grundlagen">
                             </div>
-                            
+
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Fachbereich</label>
                                 <input type="text" name="subject" required 
@@ -262,14 +262,14 @@ class AdminSystem {
                                 </select>
                             </div>
                         </div>
-                        
+
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Beschreibung</label>
                             <textarea name="description" rows="3" required 
                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                       placeholder="Kursbeschreibung..."></textarea>
                         </div>
-                        
+
                         <!-- Teacher Assignment -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Zugewiesener Lehrer</label>
@@ -281,26 +281,10 @@ class AdminSystem {
                                 `).join('')}
                             </select>
                         </div>
-                        
-                        <!-- Course Settings -->
-                        <div class="space-y-4">
-                            <h3 class="text-lg font-semibold">Kurs-Einstellungen</h3>
-                            
-                            <label class="flex items-center">
-                                <input type="checkbox" name="isPublic" checked 
-                                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                                <span class="ml-2 text-sm text-gray-700">Öffentlich verfügbar</span>
-                            </label>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Einschreibungs-Code</label>
-                                <input type="text" name="enrollmentCode" 
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                       placeholder="Automatisch generiert" readonly
-                                       value="${this.generateEnrollmentCode()}">
-                            </div>
-                        </div>
-                        
+                                
+                        <!-- REMOVED: Course Settings (isPublic, enrollmentCode) -->
+                        <!-- These are incompatible with Teacher-Student-Relationship model -->
+                                
                         <!-- Submit -->
                         <div class="flex justify-end space-x-4">
                             <button type="button" onclick="adminSystem.loadAdminDashboard()" 
@@ -314,14 +298,15 @@ class AdminSystem {
                         </div>
                     </form>
                 </div>
-                
-                <!-- Next Steps Info -->
+                                
+                <!-- Teacher-Centric Info -->
                 <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h3 class="text-lg font-semibold text-blue-800 mb-2">📋 Nächste Schritte</h3>
-                    <p class="text-blue-700 text-sm">
-                        Nach der Kurs-Erstellung können Sie Levels, Module und Aufgaben hinzufügen. 
-                        Der Kurs wird automatisch dem ausgewählten Lehrer zugewiesen.
-                    </p>
+                    <h3 class="text-lg font-semibold text-blue-800 mb-2">📋 Teacher-Centric Model</h3>
+                    <div class="text-blue-700 text-sm space-y-2">
+                        <p><strong>Zugang:</strong> Students folgen Teachers über Teacher-Code, sehen dann alle Kurse dieses Teachers</p>
+                        <p><strong>Freischaltung:</strong> Teacher schaltet Inhalte über Permission-Interface frei</p>
+                        <p><strong>Auto-Progression:</strong> Teacher entscheidet pro Student über automatische Progression</p>
+                    </div>
                 </div>
             </div>
         `;
@@ -342,8 +327,10 @@ class AdminSystem {
             description: formData.get('description'),
             teacherId: formData.get('teacherId'),
             teacherName: this.getTeacherName(formData.get('teacherId')),
-            isPublic: formData.get('isPublic') === 'on',
-            enrollmentCode: formData.get('enrollmentCode'),
+            
+            // REMOVED: isPublic, enrollmentCode - incompatible with Teacher-Student model
+            // Course access is managed through Teacher-Student relationships only
+            
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             
@@ -646,7 +633,6 @@ class AdminSystem {
                                             <p>👨‍🏫 <strong>Lehrer:</strong> ${course.teacherName}</p>
                                             <p>🌐 <strong>Sprache:</strong> ${course.language} → ${course.targetLanguage}</p>
                                             <p>📊 <strong>Statistiken:</strong> ${course.levels.length} Levels, ${this.getCourseTaskCount(course)} Aufgaben</p>
-                                            <p>🔑 <strong>Code:</strong> ${course.enrollmentCode}</p>
                                         </div>
                                     </div>
                                     <div class="flex space-x-2 ml-4">
@@ -677,7 +663,7 @@ class AdminSystem {
             this.showNotification('❌ Kurs nicht gefunden', 'error');
             return;
         }
-        
+
         // Course Structure Builder für bestehenden Kurs öffnen
         this.showCourseStructureBuilder(courseId);
     }
