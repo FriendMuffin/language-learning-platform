@@ -324,11 +324,16 @@
         // ==========================================
         
         function showPage(pageId) {
-            console.log('📍 Navigate to:', pageId);
+            console.log('Navigate to (mit Security):', pageId);
+
+            // Security-Check
+            if (!securePageAccess(pageId)) {
+                return; // Access denied
+            }
 
             // Learning-Engine cleanup - NUR wenn wir NICHT im Learning sind
             if (window.learningEngine && window.learningEngine.initialized && pageId !== 'learning') {
-                console.log('🧹 Exiting Learning Mode...');
+                console.log('Exiting Learning Mode...');
                 window.learningEngine.exitLearningMode();
             }
 
@@ -337,7 +342,6 @@
                 page.classList.add('hidden');
             });
             
-            // ✅ FIX: Learning-Page explizit verstecken (da es manchmal nicht in .page-section erfasst wird)
             const learningPage = document.getElementById('learning-page');
             if (learningPage && pageId !== 'learning') {
                 learningPage.classList.add('hidden');
@@ -348,7 +352,6 @@
             if (targetPage) {
                 targetPage.classList.remove('hidden');
 
-                // Handle navbar
                 const navbar = document.getElementById('navbar');
                 const publicPages = ['welcome', 'login', 'register'];
 
@@ -357,14 +360,12 @@
                 } else {
                     navbar.classList.remove('hidden');
 
-                    // Check auth for protected pages
                     if (!window.currentUser) {
                         showPage('login');
                         showMessage('Bitte melde dich an', 'warning');
                         return;
                     }
 
-                    // Load page content
                     loadPageContent(pageId);
                 }
             }
@@ -599,10 +600,29 @@
         }
 
         function logout() {
+            console.log('🚪 Logout wird durchgeführt...');
+
+            // 1. Proper session cleanup mit auth.js Funktion
+            if (window.clearUserSession) {
+                clearUserSession(); // Verwendet korrekte Storage-Keys
+            }
+
+            // 2. Manual cleanup als Fallback
             window.currentUser = null;
-            localStorage.removeItem('window.currentUser');
+            localStorage.removeItem('currentUser');     // Key
+            localStorage.removeItem('authToken');       // Token auch löschen
+            localStorage.removeItem('activeLearningSession'); // Learning-Session löschen
+
+            // 3. UI State komplett zurücksetzen
+            resetUIState();
+
+            // 4. Navigation
             showPage('welcome');
+
+            // 5. Bestätigung
             showMessage('Erfolgreich abgemeldet', 'success');
+
+            console.log('✅ Logout komplett abgeschlossen');
         }
 
         function showMessage(message, type) {
@@ -614,23 +634,43 @@
 
         // Initialize app
         function initApp() {
-            console.log('🚀 Simple App wird initialisiert...');
-            
-            // Check for saved session
+            console.log('🚀 App wird initialisiert...');
+
+            // 1. Session-Validation statt blind vertrauen
             const savedUser = localStorage.getItem('currentUser');
-            if (savedUser) {
+            const authToken = localStorage.getItem('authToken');
+
+            if (savedUser && authToken) {
                 try {
-                    window.currentUser = JSON.parse(savedUser);
+                    const user = JSON.parse(savedUser);
+
+                    // Token validieren
+                    if (window.TokenManager && window.TokenManager.validateToken) {
+                        const tokenPayload = TokenManager.validateToken(authToken);
+                        if (!tokenPayload) {
+                            console.log('🔒 Token ungültig - Session gelöscht');
+                            clearUserSession();
+                            showPage('welcome');
+                            return;
+                        }
+                    }
+
+                    window.currentUser = user;
                     showPage('dashboard');
+
+                    // Session-Recovery prüfen (nach erfolgreicher Auth)
+                    setTimeout(() => checkForSavedSession(), 500);
+
                 } catch (e) {
-                    localStorage.removeItem('currentUser');
+                    console.log('❌ Session-Daten korrupt - bereinigt');
+                    clearUserSession();
                     showPage('welcome');
                 }
             } else {
                 showPage('welcome');
             }
-            
-            console.log('✅ Simple App bereit');
+
+            console.log('✅ App initialisiert');
         }
 
         // Start app when DOM is ready
@@ -638,6 +678,135 @@
             document.addEventListener('DOMContentLoaded', initApp);
         } else {
             initApp();
+        }
+
+                // Session-Recovery für TC020-Fix
+        function checkForSavedSession() {
+            if (!window.currentUser) return;
+            
+            const savedSession = learningEngine.loadSavedSession();
+            if (!savedSession) return;
+
+            showSessionRecoveryModal(savedSession);
+        }
+
+        function showSessionRecoveryModal(sessionData) {
+            const modal = document.createElement('div');
+            modal.id = 'session-modal';
+            modal.className = 'fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50';
+            
+            const progress = Math.round((sessionData.taskIndex / sessionData.sessionTotal) * 100);
+            const timeAgo = Math.round((Date.now() - sessionData.timestamp) / (1000 * 60)); // Minuten
+            
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4 text-center">
+                    <h3 class="text-xl font-bold mb-4">Lektion fortsetzen?</h3>
+                    <p class="text-gray-600 mb-4">Du hattest eine Lektion in Bearbeitung</p>
+                    <div class="bg-gray-50 p-4 rounded mb-4 text-left">
+                        <div class="font-medium">Fortschritt: ${progress}%</div>
+                        <div class="text-sm text-gray-600">Aufgabe ${sessionData.taskIndex + 1} von ${sessionData.sessionTotal}</div>
+                        <div class="text-sm text-gray-500">Vor ${timeAgo} Minuten</div>
+                    </div>
+                    <div class="space-y-3">
+                        <button onclick="continueSession()" class="w-full bg-primary text-white py-2 rounded">
+                            Fortsetzen
+                        </button>
+                        <button onclick="discardSession()" class="w-full bg-gray-300 text-gray-700 py-2 rounded">
+                            Neu starten
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+
+        function continueSession() {
+            const sessionData = learningEngine.loadSavedSession();
+            document.getElementById('session-modal')?.remove();
+
+            if (sessionData) {
+                showPage('learning');
+                setTimeout(() => {
+                    // Learning Engine erst initialisieren
+                    if (!learningEngine.initialized) {
+                        const success = learningEngine.initialize('learning-page');
+                        if (!success) {
+                            console.error('Learning Engine Initialisierung fehlgeschlagen');
+                            return;
+                        }
+                    }
+
+                    // Dann Session wiederherstellen
+                    learningEngine.restoreSession(sessionData);
+                }, 100);
+            }
+        }
+
+        function discardSession() {
+            learningEngine.clearLearningSession();
+            document.getElementById('session-modal')?.remove();
+        }
+
+        /**
+         * UI-State komplett zurücksetzen
+         */
+        function resetUIState() {
+            // Navigation-Links verstecken
+            document.querySelectorAll('.student-only').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.teacher-only').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.admin-only').forEach(el => el.classList.add('hidden'));
+
+            // User-Greeting löschen
+            const greeting = document.getElementById('user-greeting');
+            if (greeting) greeting.textContent = '';
+
+            // Dashboard-Content löschen
+            const studentDashboard = document.getElementById('student-dashboard');
+            if (studentDashboard) studentDashboard.classList.add('hidden');
+
+            const teacherDashboard = document.getElementById('teacher-dashboard');
+            if (teacherDashboard) teacherDashboard.classList.add('hidden');
+
+            // Learning-Engine state löschen (falls aktiv)
+            if (window.learningEngine && window.learningEngine.initialized) {
+                try {
+                    learningEngine.clearLearningSession();
+                } catch (error) {
+                    console.log('Learning-Engine Cleanup Fehler (ignoriert):', error);
+                }
+            }
+
+            console.log('🧹 UI-State zurückgesetzt');
+        }
+
+        // Security-Check für Page-Access
+        function securePageAccess(pageId) {
+            const protectedPages = ['dashboard', 'profile', 'learning', 'students', 'admin'];
+            
+            if (protectedPages.includes(pageId)) {
+                const currentUser = getCurrentUser();
+                if (!currentUser) {
+                    console.log('Unauthorized page access blocked:', pageId);
+                    showPage('login');
+                    showMessage('Bitte melde dich an', 'warning');
+                    return false;
+                }
+                
+                if (pageId === 'students' && currentUser.userType !== 'teacher') {
+                    showNotification('Nur für Lehrer verfügbar', 'error');
+                    showPage('dashboard');
+                    return false;
+                }
+                
+                if (pageId === 'admin' && currentUser.userType !== 'admin') {
+                    showNotification('Nur für Admins verfügbar', 'error');
+                    showPage('dashboard');
+                    return false;
+                }
+            }
+            
+            return true;
         }
     </script>
 

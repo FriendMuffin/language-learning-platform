@@ -42,6 +42,14 @@ const LEARNING_CONFIG = {
 };
 
 /**
+ * Session-Persistence-Konfiguration für TC020-Fix
+ */
+const SESSION_PERSISTENCE = {
+    STORAGE_KEY: 'activeLearningSession',
+    MAX_SESSION_AGE: 2 * 60 * 60 * 1000,  // 2 Stunden
+};
+
+/**
  * Sound-Effekte für verschiedene Events
  */
 const LEARNING_SOUNDS = {
@@ -147,6 +155,9 @@ class LearningEngine {
 
         // Erste Aufgabe laden
         this.loadNextTask();
+
+        // Session speichern
+        this.saveLearningSession();
     }
     
     /**
@@ -244,6 +255,9 @@ class LearningEngine {
         this.loadTaskInterface(this.currentTask);
         
         console.log('📝 Lade Aufgabe:', this.currentTask.type, `(${this.taskIndex + 1}/${this.sessionTotal})`);
+
+        // Session speichern
+        this.saveLearningSession();
     }
     
     /**
@@ -699,6 +713,9 @@ class LearningEngine {
         this.playSound('correct');
         
         console.log('✅ Richtige Antwort! +' + xpGained + ' XP');
+
+        // Session speichern
+        this.saveLearningSession();
     }
     
     /**
@@ -1131,19 +1148,19 @@ class LearningEngine {
      */
     exitLearningMode() {
         console.log('🚪 Exiting Learning Mode');
-    
+
         // Session cleanup
         this.cleanupLearningSession();
-    
+
         // Navigation wieder anzeigen
         const navbar = document.getElementById('navbar');
         if (navbar) {
             navbar.style.display = 'block';
         }
-    
+
         // Body-Styling zurücksetzen
         document.body.style.overflow = 'auto';
-    
+
         // Learning-Page styling zurücksetzen
         const learningPage = document.getElementById('learning-page');
         if (learningPage) {
@@ -1154,7 +1171,7 @@ class LearningEngine {
             learningPage.style.height = '';
             learningPage.style.zIndex = '';
             learningPage.style.backgroundColor = '';
-            
+
             // ✅ FIX: Learning-Page HTML wiederherstellen
             learningPage.innerHTML = `
                 <div class="pt-16 max-w-4xl mx-auto py-6 px-4">
@@ -1167,10 +1184,129 @@ class LearningEngine {
                 </div>
             `;
         }
-    
+
         // Zurück zur normalen Learning-Page
         if (window.loadAdvancedLearningInterface) {
             setTimeout(() => window.loadAdvancedLearningInterface(), 100);
+        }
+    }
+
+    /**
+     * Speichert aktuelle Learning-Session
+     */
+    saveLearningSession() {
+        if (!this.currentCourse || !this.currentLevel || !this.currentModule) {
+            this.clearLearningSession();
+            return;
+        }
+
+        const sessionData = {
+            timestamp: Date.now(),
+            userId: window.currentUser?.id,
+            courseId: this.currentCourse.id,
+            levelId: this.currentLevel.id,
+            moduleId: this.currentModule.id,
+            taskIndex: this.taskIndex,
+            hearts: this.hearts,
+            sessionXP: this.sessionXP,
+            sessionCorrect: this.sessionCorrect,
+            sessionTotal: this.sessionTotal,
+            startTime: this.startTime,
+        };
+
+        try {
+            localStorage.setItem(SESSION_PERSISTENCE.STORAGE_KEY, JSON.stringify(sessionData));
+            console.log('💾 Session gespeichert');
+        } catch (error) {
+            console.error('❌ Session-Speicher-Fehler:', error);
+        }
+    }
+
+    /**
+     * Lädt gespeicherte Learning-Session
+     */
+    loadSavedSession() {
+        try {
+            const data = localStorage.getItem(SESSION_PERSISTENCE.STORAGE_KEY);
+            if (!data) return null;
+
+            const session = JSON.parse(data);
+            
+            // Prüfungen
+            if (Date.now() - session.timestamp > SESSION_PERSISTENCE.MAX_SESSION_AGE) {
+                this.clearLearningSession();
+                return null;
+            }
+            
+            if (session.userId !== window.currentUser?.id) {
+                this.clearLearningSession();
+                return null;
+            }
+
+            return session;
+        } catch (error) {
+            this.clearLearningSession();
+            return null;
+        }
+    }
+
+    /**
+     * Löscht gespeicherte Session
+     */
+    clearLearningSession() {
+        localStorage.removeItem(SESSION_PERSISTENCE.STORAGE_KEY);
+    }
+
+    /**
+     * Stellt Session wieder her
+     */
+    async restoreSession(sessionData) {
+        console.log('🔄 Stelle Session wieder her...');
+
+        try {
+            // Kurs-Daten laden
+            this.currentCourse = courseManager.getCourse(sessionData.courseId);
+            this.currentLevel = this.currentCourse.levels.find(l => l.id === sessionData.levelId);
+            this.currentModule = this.currentLevel.modules.find(m => m.id === sessionData.moduleId);
+
+            // Session-State wiederherstellen
+            this.taskIndex = sessionData.taskIndex;
+            this.hearts = sessionData.hearts;
+            this.sessionXP = sessionData.sessionXP;
+            this.sessionCorrect = sessionData.sessionCorrect;
+            this.sessionTotal = sessionData.sessionTotal;
+            this.startTime = sessionData.startTime;
+
+            // UI aufbauen
+            this.enterFullscreenMode();
+                    
+            // Sicherstellen dass Container existiert
+            if (!this.container) {
+                const success = this.initialize('learning-page');
+                if (!success) {
+                    throw new Error('Container-Initialisierung fehlgeschlagen');
+                }
+            }
+            
+            this.buildFullscreenLessonUI();
+
+            // Aktuelle Task laden
+            this.currentTask = this.currentModule.tasks[this.taskIndex];
+            this.loadTaskInterface(this.currentTask);
+
+            // Progress aktualisieren
+            const progress = (this.taskIndex / this.sessionTotal) * 100;
+            document.getElementById('lesson-progress').style.width = `${progress}%`;
+            document.getElementById('task-counter').textContent = this.taskIndex + 1;
+            this.updateHeartsDisplay();
+
+            console.log('✅ Session wiederhergestellt');
+            this.showNotification('Lektion fortgesetzt!', 'success');
+
+        } catch (error) {
+            console.error('❌ Session-Wiederherstellung fehlgeschlagen:', error);
+            this.clearLearningSession();
+            this.showError('Session konnte nicht wiederhergestellt werden');
         }
     }
 
