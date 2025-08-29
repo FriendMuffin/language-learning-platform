@@ -338,8 +338,17 @@ class CoursePermissionManager {
         // 4. Finale Access-Entscheidung
         // TEACHER-FIRST DESIGN: Nur explizite Module-Permission zählt
         const hasPermissionAccess = hasTeacherPermission;
-        // Module braucht explizite Teacher-Permission UND Student-Progress
-        const finalAccess = hasTeacherPermission && hasProgress;
+
+        // Hierarchie-Logic:
+        // 1. Level muss freigeschaltet sein
+        const parentLevelAccess = this.hasPermission(studentId, courseId, levelId);
+
+        // 2. Modul braucht explizite Permission ODER ist erstes Modul in freigeschaltetem Level
+        const firstModuleInLevel = this.isFirstModuleInLevel(courseId, levelId, moduleId);
+        const moduleAccess = hasTeacherPermission || (parentLevelAccess && firstModuleInLevel);
+
+        // 3. Finale Hierarchie: Level-Access UND Module-Access UND Progress
+        const finalAccess = parentLevelAccess && moduleAccess && hasProgress;
 
         return {
             hasAccess: finalAccess,
@@ -354,6 +363,19 @@ class CoursePermissionManager {
                 !hasProgress ? `Fortschritt erforderlich: ${progressReason}` :
                 'Unbekannter Grund'
         };
+    }
+
+    /**
+     * Prüft ob Modul das erste in einem Level ist
+     */
+    isFirstModuleInLevel(courseId, levelId, moduleId) {
+        const course = courseManager.getCourse(courseId);
+        if (!course) return false;
+
+        const level = course.levels.find(l => l.id === levelId);
+        if (!level || level.modules.length === 0) return false;
+
+        return level.modules[0].id === moduleId;
     }
     
     /**
@@ -682,15 +704,19 @@ class TeacherPermissionInterface {
                                     <div class="flex items-center justify-between py-2 px-3 bg-white rounded border">
                                         <div class="flex-1">
                                             <span class="font-medium">${module.title}</span>
-                                            <div class="text-xs text-gray-500 mt-1">
-                                                Teacher: ${module.hasTeacherPermission ? '✅' : '❌'} | 
-                                                Progress: ${module.hasProgress ? '✅' : '❌'} | 
-                                                ${module.progressReason}
-                                            </div>
+<div class="text-xs text-gray-500 mt-1">
+    ${module.hasAccess ? 
+        'Verfügbar' : 
+        module.hasTeacherPermission ? 
+            `Warte auf Fortschritt: ${module.progressReason}` :
+            'Noch nicht freigeschaltet'
+    }
+</div>
                                         </div>
                                         <button onclick="teacherPermissionInterface.toggleModuleAccess('${studentId}', '${course.id}', '${module.id}')"
-                                                class="px-2 py-1 rounded text-xs ${module.hasTeacherPermission ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-700'}">
-                                            ${module.hasTeacherPermission ? 'Freigegeben' : 'Sperren'}
+                                            ${!level.hasAccess ? 'disabled title="Level muss erst freigeschaltet werden"' : ''}
+                                            class="px-2 py-1 rounded text-xs ${module.hasTeacherPermission ? 'bg-green-500 text-white' : level.hasAccess ? 'bg-gray-300 text-gray-700 hover:bg-gray-400' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}">
+                                            ${module.hasTeacherPermission ? 'Freigegeben' : 'Gesperrt'}
                                         </button>
                                     </div>
                                 `).join('')}
@@ -734,6 +760,17 @@ class TeacherPermissionInterface {
         if (!window.currentUser) return;
         
         const teacherId = window.currentUser.id;
+
+        // Hierarchie-Validation: Level muss freigeschaltet sein
+        const course = courseManager.getCourse(courseId);
+        const level = course.levels.find(l => l.modules.some(m => m.id === moduleId));
+        const hasLevelPermission = this.permissionManager.hasPermission(studentId, courseId, level.id);
+            
+        if (!hasLevelPermission) {
+            showNotification('Level muss erst freigeschaltet werden', 'warning');
+            return;
+        }
+
         const hasAccess = this.permissionManager.hasPermission(studentId, courseId, null, moduleId);
         
         if (hasAccess) {

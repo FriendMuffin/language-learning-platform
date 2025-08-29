@@ -356,9 +356,9 @@
                 const publicPages = ['welcome', 'login', 'register'];
 
                 if (publicPages.includes(pageId)) {
-                    navbar.classList.add('hidden');
+                    navbar.style.display = 'none';  // Erzwingt hiding
                 } else {
-                    navbar.classList.remove('hidden');
+                    navbar.style.display = 'block'; // Zeigt navbar
 
                     if (!window.currentUser) {
                         showPage('login');
@@ -753,9 +753,15 @@
          */
         function resetUIState() {
             // Navigation-Links verstecken
-            document.querySelectorAll('.student-only').forEach(el => el.classList.add('hidden'));
-            document.querySelectorAll('.teacher-only').forEach(el => el.classList.add('hidden'));
-            document.querySelectorAll('.admin-only').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.student-only').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.teacher-only').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+                    
+            // Navbar explizit verstecken
+            const navbar = document.getElementById('navbar');
+            if (navbar) {
+                navbar.style.display = 'none';
+            }
 
             // User-Greeting löschen
             const greeting = document.getElementById('user-greeting');
