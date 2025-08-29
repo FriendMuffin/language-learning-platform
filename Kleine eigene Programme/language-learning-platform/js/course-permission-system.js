@@ -329,9 +329,10 @@ class CoursePermissionManager {
         }
 
         // 4. Finale Access-Entscheidung
-        // Access = (Module-Permission ODER Level-Permission) UND Progress
-        const hasPermissionAccess = hasTeacherPermission || (hasLevelPermission && hasProgress);
-        const finalAccess = hasPermissionAccess && hasProgress;
+        // TEACHER-FIRST DESIGN: Nur explizite Module-Permission zählt
+        const hasPermissionAccess = hasTeacherPermission;
+        // Module braucht explizite Teacher-Permission UND Student-Progress
+        const finalAccess = hasTeacherPermission && hasProgress;
 
         return {
             hasAccess: finalAccess,
@@ -972,13 +973,13 @@ function enhanceLearningInterface() {
     
     window.loadAdvancedLearningInterface = function() {
         console.log('Lade SICHERE Learning-Interface...');
-        
+
         const learningContainer = document.getElementById('learning-content');
         if (!learningContainer) return;
-        
+
         const currentUser = getCurrentUser();
         if (!currentUser) return;
-        
+
         if (currentUser.userType !== 'student') {
             learningContainer.innerHTML = `
                 <div class="text-center py-8">
@@ -988,11 +989,11 @@ function enhanceLearningInterface() {
             `;
             return;
         }
-        
+
         const activeTeachers = teacherStudentManager.relationships.filter(rel => 
             rel.studentId === currentUser.id && rel.isActive
         );
-        
+
         if (activeTeachers.length === 0) {
             learningContainer.innerHTML = `
                 <div class="text-center py-12">
@@ -1009,7 +1010,7 @@ function enhanceLearningInterface() {
             `;
             return;
         }
-        
+
         let availableTeacherCourses = [];
         activeTeachers.forEach(rel => {
             const courses = courseManager.getCoursesByTeacher ? 
@@ -1017,11 +1018,11 @@ function enhanceLearningInterface() {
                 courseManager.courses.filter(course => course.teacherId === rel.teacherId);
             availableTeacherCourses.push(...courses);
         });
-        
+
         availableTeacherCourses = availableTeacherCourses.filter((course, index, self) => 
             index === self.findIndex(c => c.id === course.id)
         );
-        
+
         if (availableTeacherCourses.length === 0) {
             learningContainer.innerHTML = `
                 <div class="text-center py-8">
@@ -1031,12 +1032,12 @@ function enhanceLearningInterface() {
             `;
             return;
         }
-        
+
         let courseHTML = `
             <div class="space-y-8">
                 <h2 class="text-2xl font-bold text-gray-900">Deine Lernreise</h2>
         `;
-            
+
         availableTeacherCourses.forEach(course => {
             if (window.studentPermissionInterface) {
                 courseHTML += studentPermissionInterface.renderCourseWithPermissions(course, currentUser.id);
@@ -1050,7 +1051,7 @@ function enhanceLearningInterface() {
                 `;
             }
         });
-        
+
         courseHTML += '</div>';
         learningContainer.innerHTML = courseHTML;
     };
