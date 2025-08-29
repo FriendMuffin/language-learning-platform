@@ -45,13 +45,20 @@ class CoursePermissionManager {
         const demoTeacherId = 'demo-teacher-001';
         const germanCourseId = 'german-a1-demo';
         
-        // Demo-Permissions für ersten Level freischalten
-        if (!this.hasPermission(demoStudentId, germanCourseId, 'level-1')) {
-            this.grantLevelAccess(demoTeacherId, demoStudentId, germanCourseId, 'level-1');
+        // Prüfe ob Demo-Permissions bereits einmal erstellt wurden
+        const demoInitFlag = localStorage.getItem('demoPermissionsInitialized');
+        if (demoInitFlag) {
+            console.log('Demo-Permissions bereits initialisiert - überspringe automatische Erstellung');
+            return;
         }
         
-        // Auto-Progression für Demo-Student aktivieren
+        // Demo-Permissions nur beim ersten Mal erstellen
+        this.grantLevelAccess(demoTeacherId, demoStudentId, germanCourseId, 'level-1');
         this.setAutoProgression(demoTeacherId, demoStudentId, germanCourseId, true);
+        
+        // Flag setzen dass Demo-Permissions erstellt wurden
+        localStorage.setItem('demoPermissionsInitialized', 'true');
+        console.log('Demo-Permissions erstmalig initialisiert');
     }
     
     /**
