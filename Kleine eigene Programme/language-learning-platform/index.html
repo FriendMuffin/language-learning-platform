@@ -77,7 +77,7 @@
                     <div class="text-center">
                         <h2 class="text-3xl font-bold text-gray-900">Anmelden</h2>
                     </div>
-                    <form onsubmit="handleLogin(event)" class="space-y-6">
+                    <form onsubmit="handleLogin(event)" class="space-y-6" autocomplete="off">
                         <div id="login-error" class="hidden bg-red-100 text-red-700 px-4 py-3 rounded"></div>
                         <div>
                             <input name="username" type="text" required placeholder="Benutzername" 
@@ -351,6 +351,20 @@
             const targetPage = document.getElementById(pageId + '-page');
             if (targetPage) {
                 targetPage.classList.remove('hidden');
+
+                // Login-Form immer zurücksetzen
+                if (pageId === 'login') {
+                    setTimeout(() => {
+                        const loginForm = document.querySelector('#login-page form');
+                        if (loginForm) {
+                            loginForm.reset();
+                            loginForm.querySelectorAll('input').forEach(input => {
+                                input.value = '';
+                                input.removeAttribute('value');
+                            });
+                        }
+                    }, 50);
+                }
 
                 const navbar = document.getElementById('navbar');
                 const publicPages = ['welcome', 'login', 'register'];
@@ -756,7 +770,7 @@
             document.querySelectorAll('.student-only').forEach(el => el.style.display = 'none');
             document.querySelectorAll('.teacher-only').forEach(el => el.style.display = 'none');
             document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
-                    
+
             // Navbar explizit verstecken
             const navbar = document.getElementById('navbar');
             if (navbar) {
@@ -814,6 +828,23 @@
             
             return true;
         }
+
+        // Cross-tab session synchronization
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'currentUser' && e.newValue === null) {
+                // Other tab logged out
+                console.log('Cross-tab logout detected');
+                window.currentUser = null;
+
+                // If in learning mode, clean exit
+                if (window.learningEngine && window.learningEngine.initialized) {
+                    learningEngine.exitLearningMode();
+                }
+
+                showPage('login');
+                showMessage('Du wurdest in einem anderen Tab abgemeldet', 'info');
+            }
+        });
     </script>
 
     <script src="js/admin-system.js"></script>

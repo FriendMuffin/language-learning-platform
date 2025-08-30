@@ -1022,7 +1022,19 @@ function enhanceLearningInterface() {
         if (!learningContainer) return;
 
         const currentUser = getCurrentUser();
-        if (!currentUser) return;
+        // Cross-tab session validation
+        if (!currentUser) {
+            learningContainer.innerHTML = `
+                <div class="text-center py-8">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4">Session beendet</h3>
+                    <p class="text-gray-600 mb-6">Du wurdest abgemeldet. Bitte melde dich erneut an.</p>
+                    <button onclick="showPage('login')" class="bg-primary hover:bg-blue-600 text-white px-6 py-3 rounded-lg">
+                        Zur Anmeldung
+                    </button>
+                </div>
+            `;
+            return;
+        }
 
         if (currentUser.userType !== 'student') {
             learningContainer.innerHTML = `
