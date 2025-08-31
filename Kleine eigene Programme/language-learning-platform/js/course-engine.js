@@ -1172,10 +1172,14 @@ class LearningEngine {
             learningPage.style.zIndex = '';
             learningPage.style.backgroundColor = '';
 
-            // ✅ FIX: Learning-Page HTML wiederherstellen
             learningPage.innerHTML = `
                 <div class="pt-16 max-w-4xl mx-auto py-6 px-4">
                     <h1 class="text-3xl font-bold text-gray-900 mb-6">Lernen</h1>
+                    <div class="mb-6">
+                        <button onclick="showPage('dashboard')" class="text-primary hover:text-blue-600 flex items-center space-x-2">
+                            <span>←</span><span>Zurück zum Dashboard</span>
+                        </button>
+                    </div>
                     <div class="bg-white shadow rounded-lg p-6">
                         <div id="learning-content">
                             <p class="text-gray-600">Lade Lern-Inhalte...</p>
@@ -1279,7 +1283,7 @@ class LearningEngine {
 
             // UI aufbauen
             this.enterFullscreenMode();
-                    
+
             // Sicherstellen dass Container existiert
             if (!this.container) {
                 const success = this.initialize('learning-page');
@@ -1287,7 +1291,7 @@ class LearningEngine {
                     throw new Error('Container-Initialisierung fehlgeschlagen');
                 }
             }
-            
+
             this.buildFullscreenLessonUI();
 
             // Aktuelle Task laden
